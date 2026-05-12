@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+
+require "wiq"
+
+begin
+  Wiq::CLI.start(ARGV)
+rescue Wiq::Error => e
+  Wiq::Output.render_error(e, options: { agent: ARGV.include?("--agent"), json: ARGV.include?("--json") })
+  exit(e.exit_code)
+rescue Faraday::Error => e
+  Wiq::Output.render_error(
+    Wiq::Error.new(e.message, code: "network_error", hint: "Check the host URL and your network."),
+    options: { agent: ARGV.include?("--agent"), json: ARGV.include?("--json") }
+  )
+  exit(1)
+rescue Interrupt
+  warn "\nInterrupted"
+  exit(130)
+end
