@@ -52,6 +52,15 @@ Last updated: 2026-05-12 (after L1 ships).
 - **`wiq paid_sessions create/update`**, **`wiq rosters create/update`**,
   etc. — every write path on every resource. v1 is reads-only except
   report submission. Cherry-pick as customers ask.
+- **Prospect write commands.** API supports `POST /prospect_families`,
+  `PATCH /prospect_families/:id` (incl. assigned_coach), `DELETE`,
+  `POST /prospect_families/:id/prospects`, `PATCH /prospects/:id`
+  (incl. stage transitions via `advance_to!`), and
+  `POST /prospect_families/:id/notes` (with `clear_follow_up_for[]` /
+  `add_follow_up_for[]` side-effect params). Reads-only in v1 — most
+  pipeline edits happen in the drawer UI today, and exposing
+  stage-transition writes without first watching agents use them is
+  asking for trouble.
 
 ## Packaging / distribution
 

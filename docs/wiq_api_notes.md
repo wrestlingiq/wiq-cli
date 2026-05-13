@@ -435,6 +435,100 @@ Other registration surface:
   should never call this implicitly; gate behind an explicit `--notify`
   flag on event edits.
 
+## Prospects (lead-pipeline) endpoints
+
+Three controllers under `/api/v1`:
+
+- `Api::V1::ProspectsController` — `index, show, update, destroy` plus a
+  collection `GET /prospects/summary` dashboard endpoint.
+- `Api::V1::ProspectFamiliesController` — `index, show, create, update,
+  destroy`. Family = household; a family has many prospects (one per kid).
+- `Api::V1::ProspectFamilyNotesController` — nested under
+  `/prospect_families/:id/notes`, `index` + `create`. Notes are
+  `Note` rows with `noteable_type: "ProspectFamily"`.
+
+### Prospect index — filters
+
+`GET /api/v1/prospects` (wrapped under `"prospects"`):
+
+| Param | Values | Notes |
+| --- | --- | --- |
+| `query` | free text | Searches across family contact name/email/phone. **Bypasses all other filters when present.** |
+| `attention_mode` | `needs_attention` \| `handled` | `needs_attention` = `needs_follow_up=true`; `handled` = active stage + not flagged. |
+| `stage` | `inquiry, trial_scheduled, trialing, trial_complete, converted, didnt_join, archived` | One funnel stage. |
+| `assigned_to` | `me` | Restricts to families assigned to the calling coach. |
+| `assigned_coach_id` | `<id>` | Restricts to families assigned to that coach. |
+| `page`, `per_page` | standard | |
+
+### Prospect summary — dashboard endpoint
+
+`GET /api/v1/prospects/summary` returns an **unwrapped object** (no
+pagination, no resource-name key). Shape:
+
+```json
+{
+  "by_stage":                 { "inquiry": 12, "trial_scheduled": 3, ... },
+  "by_stage_needs_attention": { "inquiry": 4,  ... },
+  "by_stage_handled":         { "inquiry": 8,  ... },
+  "needs_action_count":           N,
+  "needs_attention_count":        N,
+  "active_trials_count":          N,
+  "families_total_count":         N,
+  "families_needs_attention_count": N,
+  "families_handled_count":         N,
+  "conversion_rate":              42.7
+}
+```
+
+Params:
+- `start_date` + `end_date` (YYYY-MM-DD) — explicit cohort window. Must
+  be passed together.
+- `conversion_days` (integer; only `30, 60, 90, 180` accepted, default
+  `90`) — look-back window when no explicit cohort dates.
+
+Cohort semantics: numerator and denominator are pinned to the same
+cohort (prospects created in the window). Without this pin, a prospect
+created before the window but converting inside it would push the rate
+past 100%.
+
+### ProspectFamily index — filters + sort
+
+`GET /api/v1/prospect_families` (wrapped under `"prospect_families"`):
+
+Filters: `query, attention_mode, stage` (via `with_any_prospect_in_stage`
+scope), `assigned_to=me`, `assigned_coach_id`, and a registration-answer
+filter `question_id` + `answer_value` (both required).
+
+`sort` parameter (one of `newest, oldest_followup, oldest_contact,
+next_trial`):
+- `newest` — default for All Leads view; `families.created_at DESC`.
+- `oldest_followup` — default when `attention_mode=needs_attention`;
+  oldest pending follow-up first.
+- `oldest_contact` — by `MAX(notes.created_at WHERE activity_type IS NOT NULL)`,
+  `NULLS FIRST` so never-contacted leads surface (most actionable, not
+  least).
+- `next_trial` — soonest future-scheduled trial first.
+
+Family jbuilder embeds an `prospects[]` array (each kid's full row) plus
+the `last_contact` summary `{ activity_type, author_name, occurred_at }`
+preloaded as a `has_one` so the index payload doesn't scan a family's
+full note history. Also surfaces `registration_answers` so a coach sees
+the intake form on the row card.
+
+### ProspectFamily notes
+
+`GET /api/v1/prospect_families/:id/notes` (wrapped under `"notes"`)
+returns one row per `Note`. Fields per the standard note jbuilder:
+`id, created_at, activity_type, content, plain_content, author{id, type,
+display_name}, noteable{id, type}`. Sorted `id DESC` (newest first).
+
+CLI surface for the above (all reads):
+- `wiq prospects list/show/summary`
+- `wiq prospect_families list/show/notes`
+
+Writes (create family, advance stage, log a note) are deliberately
+deferred — see `docs/deferred.md`.
+
 ## How `--season <year>` resolves
 
 No first-class `Season` model exists. The CLI treats "season" as a

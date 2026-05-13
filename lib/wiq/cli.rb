@@ -42,5 +42,11 @@ module Wiq
 
     desc "rosters SUBCOMMAND", "Rosters (list, show)"
     subcommand "rosters", Wiq::Commands::Rosters
+
+    desc "prospects SUBCOMMAND", "Prospect pipeline — individual kids (list, show, summary)"
+    subcommand "prospects", Wiq::Commands::Prospects
+
+    desc "prospect_families SUBCOMMAND", "Prospect pipeline — households (list, show, notes)"
+    subcommand "prospect_families", Wiq::Commands::ProspectFamilies
   end
 end
