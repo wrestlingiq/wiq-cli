@@ -7,6 +7,7 @@ module Wiq
   #
   # Host:
   #   --host > WIQ_HOST > .wiq/config.json:host > sole stored host
+  #         > PRODUCTION_HOST
   #
   # Alias (only meaningful once host is known):
   #   --as > WIQ_ALIAS > .wiq/config.json:alias > sole alias for host > "default"
@@ -14,6 +15,8 @@ module Wiq
   # Token:
   #   WIQ_TOKEN (direct override) > credentials store (host, alias)
   class Config
+    PRODUCTION_HOST = "https://www.wrestlingiq.com"
+
     attr_reader :host, :alias_name, :token, :sources
 
     def self.load(options = {})
@@ -86,7 +89,8 @@ module Wiq
         @sources[:host] = "credentials store (sole host)"
         return hosts.first
       end
-      nil
+      @sources[:host] = "production default"
+      PRODUCTION_HOST
     end
 
     def resolve_alias

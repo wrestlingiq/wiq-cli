@@ -37,7 +37,9 @@ stores each PAT under a different alias.
 2. `WIQ_HOST` env var.
 3. `host` key in `.wiq/config.json` (walked from cwd upward).
 4. Sole host in the credentials store (if exactly one).
-5. **No baked-in default** → exits `code: "host_unset"`.
+5. **Production default** (`https://www.wrestlingiq.com`, hardcoded as
+   `Wiq::Config::PRODUCTION_HOST`). The 99% case is production; testing
+   against staging requires an explicit override via flag/env/config.
 
 **Alias resolution order** (only consulted once the host is known):
 1. `--as <alias>` CLI flag.

@@ -10,9 +10,11 @@ module Wiq
       method_option :force, type: :boolean, default: false,
                             desc: "Overwrite an existing entry at this host+alias slot"
       def login
-        host = options[:host] || prompt("WIQ host URL (e.g. https://www.wrestlingiq.com): ")
+        default_host = Wiq::Config::PRODUCTION_HOST
+        host = options[:host] || prompt("WIQ host URL [#{default_host}]: ")
         host = host.to_s.strip
-        if host.empty? || !host.start_with?("http")
+        host = default_host if host.empty?
+        unless host.start_with?("http")
           raise Wiq::ConfigError.new("Host must be an absolute URL, got #{host.inspect}.",
                                      code: "invalid_host")
         end
