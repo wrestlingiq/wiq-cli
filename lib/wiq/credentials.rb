@@ -2,6 +2,7 @@
 
 require "json"
 require "fileutils"
+require "time"
 
 module Wiq
   # File-backed credential store. ~/.config/wiq/credentials.json, mode 0600.

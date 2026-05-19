@@ -75,11 +75,13 @@ Last updated: 2026-05-12 (after L1 ships).
   installer. Gem-only install for v1.
 - **README.md / CHANGELOG.md.** None exist today. Add when the gem is
   ready for external publish.
-- **Test suite (RSpec).** No automated tests in the initial drop. Add
-  before adding many more commands or before shipping outside-internal.
-  Smoke targets: config resolution chain, error mapper, pagination
-  Link-header parsing, output formatter modes, season resolver, client
-  unwrap of `{"<key>": [...]}` index responses.
+- **Integration / command-level tests.** Smoke layer landed
+  (`spec/{pagination,credentials,errors,config,output,client,season_resolver}_spec.rb`,
+  57 examples covering config resolution, error mapper, pagination,
+  output formatters, client wrap-unwrap, season filter). Still missing:
+  full Thor-invocation tests that exercise the command modules end-to-end
+  (`wiq rosters list --as westside` against a stubbed API). Add once a
+  command module starts carrying real logic beyond passing params through.
 
 ## Output
 
