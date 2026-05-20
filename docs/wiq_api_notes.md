@@ -246,7 +246,26 @@ file with the WIQ team.
 
 - `POST /api/v1/reports`
   - Body: `{ "report": { "type": "<ReportClass>", "version": "v1"|"vrow", "name": "...", "start_at": "YYYY-MM-DD", "end_at": "YYYY-MM-DD", "args": { ... } } }`
-  - Permitted `args` keys: `paid_session_id, roster_id, fundraiser_id, online_store_id, event_id, include_archived_roster_tags, append_property_ids[]`.
+  - Permitted `args` keys (`reports_controller.rb#report_params`):
+    `paid_session_id, roster_id, fundraiser_id, online_store_id, event_id,
+    include_archived_roster_tags, append_property_ids[]`.
+  - **Special values** worth knowing for any agent:
+    - `roster_id: 0` → "all rosters" (UI convention from `defaultRoster` in
+      `report_form.vue`).
+    - `paid_session_id: 0` → "all sessions" — accepted **only** by
+      `UsawExportReport` (the only report where `allowAllPaidSessionsInPicker`
+      is true). Anywhere else it'll 404 on `PaidSession.find(0)`.
+    - `append_property_ids: [<reg_question_id>, ...]` → custom-column append.
+      In practice **only `RosterReport` consumes this**; other reports
+      accept the param but ignore it. Discover question ids via
+      `GET /api/v1/registration_questions`.
+    - `include_archived_roster_tags: true` → also `RosterReport`-only in
+      the UI, paired with the column-add feature.
+  - **Known backend gap:** `days_threshold` (used by `ChurnRiskReport`,
+    7/14/30/60/90) is sent by the Vue UI but **not** in the permit list.
+    The model silently falls back to its 30-day default. CLI exposes
+    `--days-threshold` and sends it anyway; until the WIQ-app permit fix
+    ships, the param is dropped server-side.
   - Response: `201 Created` with the full report jbuilder
     (`id, created_at, updated_at, type, processed_at, start_at, end_at, name,
     version, status, result, args`). `status` is `"requested"` momentarily;
