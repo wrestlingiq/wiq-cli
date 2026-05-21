@@ -16,6 +16,28 @@ module Wiq
     end
     map %w[--version -v] => :version
 
+    desc "commands", "Dump the full command tree as JSON for agent discovery"
+    long_desc <<~DESC
+      Walks the Thor command registry and emits the entire CLI surface as
+      structured JSON. Schema:
+
+        { name, version, global_options[], top_level_commands[],
+          groups: [ { name, description, commands: [
+            { name, description, long_description, usage,
+              options: [ { name, type, required, default?, enum?, description } ]
+            }
+          ] } ] }
+
+      Recommended first call for any agent: pipe to a file, cache it, then
+      pick a command and invoke it directly. No HTTP, no auth required.
+
+      `global_options` lists --host, --as, --json, --agent — these apply
+      uniformly to every command and aren't repeated per-command.
+    DESC
+    def commands
+      puts JSON.pretty_generate(Wiq::Introspection.dump_tree)
+    end
+
     desc "doctor", "Diagnose env, network, token, and config sources"
     subcommand "doctor", Wiq::Commands::Doctor
 

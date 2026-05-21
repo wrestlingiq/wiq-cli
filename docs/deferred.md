@@ -25,10 +25,18 @@ Last updated: 2026-05-12 (after L1 ships).
 - ~~**Recommendation pass on the other report types.**~~ SHIPPED — 20
   REC, 1 DEP, 15 NEU, 9 admin_only across the 36 entries in
   `Reports::TYPES`. User-curated.
-- **`wiq commands --json` / `wiq --help --agent`.** Full command tree
-  dump + structured JSON help on any command. Phase 2 — reads
-  `Thor.commands` introspection + the `long_desc` strings shipped in
-  Phase 1.
+- ~~**`wiq commands` JSON tree dump.**~~ SHIPPED. Walks Thor's
+  registry, emits stable nested JSON: `{name, version, global_options,
+  top_level_commands, groups: [{name, description, commands:
+  [{name, description, long_description, usage, options}]}]}`. Filters
+  Thor internals (`help`, `tree`), surfaces `enum` constraints,
+  reverses Thor's `map` so display names match what users type
+  (`run` not `run_report`, `check` not `check_all`).
+- **Per-command `--help --agent` JSON mode.** Deferred per the
+  Phase 2 scoping discussion — `wiq commands` covers the discovery
+  case in one call (~30 KB total). Add later only if a real agent
+  flow needs per-command JSON narrowly (filter the same introspection
+  output to one entry; very low cost).
 - **`.surface` drift CI.** Snapshot of the command tree at repo root; CI
   fails on drift without an explicit update. Worth it once the command
   surface stabilizes (i.e., after L2 lands).
