@@ -70,5 +70,8 @@ module Wiq
 
     desc "prospect_families SUBCOMMAND", "Prospect pipeline — households (list, show, notes)"
     subcommand "prospect_families", Wiq::Commands::ProspectFamilies
+
+    desc "workflows SUBCOMMAND", "Named multi-step recipes for common club-admin questions (list, show)"
+    subcommand "workflows", Wiq::Commands::Workflows
   end
 end

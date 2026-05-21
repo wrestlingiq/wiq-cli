@@ -9,11 +9,15 @@ Last updated: 2026-05-12 (after L1 ships).
 
 ## Agent-discovery surface
 
-- **L2 — `wiq workflows` command.** Static catalog of named recipes
-  ("attendance-report-last-month" → exact command sequence). Lives in
-  `lib/wiq/workflows.rb` as a Ruby hash. Aim for 5–8 named workflows.
-  Hold until initial testing surfaces which multi-step recipes agents
-  actually run.
+- ~~**L2 — `wiq workflows` command.**~~ SHIPPED. 14 curated workflows
+  across 7 categories (attendance, leads, roster, finance, memberships,
+  fundraising, store) in `lib/wiq/workflows.rb`. Each carries a
+  `question`, structured `parameters` (with types + enums + required
+  flags), an ordered `recipe` (with `<placeholder>` and `[--flag <name>]`
+  syntax), and `admin_only` flag propagated from underlying reports.
+  Spec invariants enforce parameter↔placeholder consistency and
+  admin_only drift detection across `Workflows::ALL` and
+  `Reports::TYPES`.
 - **L3 — SKILL.md + Claude plugin.** Bundled at `share/skills/wiq/SKILL.md`,
   installed via `wiq setup claude`. Sections: invariants, output-mode
   matrix, ID resolution, pagination, common workflows. Hold until we have
