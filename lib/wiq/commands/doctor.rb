@@ -4,6 +4,22 @@ module Wiq
   module Commands
     class Doctor < Base
       desc "check", "Diagnose env, network, token, and config sources"
+      long_desc <<~DESC
+        Runs a sequence of diagnostic checks:
+
+          1. Ruby version (>= 3.1 required)
+          2. Credentials path (~/.config/wiq/credentials.json)
+          3. Resolved host + source (--host > env > config > store > prod)
+          4. Resolved alias + source
+          5. Token presence + source
+          6. Live reachability + auth probe via
+             `GET /api/v1/personal_access_tokens`
+          7. Bound profile (display_name, type, team) for the calling token
+
+        Exits non-zero if any check fails. Agents should run this first
+        when handed an unfamiliar shell to confirm they can actually call
+        the API.
+      DESC
       def check_all
         checks = []
 

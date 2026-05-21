@@ -6,6 +6,24 @@ module Wiq
   module Commands
     class Auth < Base
       desc "login", "Store a personal access token for a WIQ host"
+      long_desc <<~DESC
+        Stores a PAT in ~/.config/wiq/credentials.json (mode 0600) keyed by
+        host + alias.
+
+        First-time login slots into "default" automatically. If "default" is
+        already taken, pass --as <alias> to create a separate slot — this is
+        how the CLI supports multiple WIQ accounts (different clubs, different
+        roles) on the same host.
+
+        Customers mint PATs at <host>/settings/personal_access_tokens. The
+        plaintext is shown once at creation; paste it into this command (or
+        use --token).
+
+        Verification: the CLI hits `GET /api/v1/personal_access_tokens` to
+        confirm the token works AND fetch the bound profile (display_name,
+        team_name, type) in one round trip. That metadata is shown after
+        login and stored alongside the token.
+      DESC
       method_option :token, type: :string, desc: "PAT value (otherwise prompted interactively)"
       method_option :force, type: :boolean, default: false,
                             desc: "Overwrite an existing entry at this host+alias slot"
@@ -69,6 +87,19 @@ module Wiq
       end
 
       desc "status", "Show the configured host, alias, and bound profile"
+      long_desc <<~DESC
+        Resolves the configuration chain (--host/--as flags → env vars →
+        .wiq/config.json → credentials store) and reports which source won.
+
+        Performs a best-effort live probe against
+        `/api/v1/personal_access_tokens` to confirm the token still works
+        and surface the live last_used_at. If the probe fails (network,
+        revoked token, host unreachable), the error appears in `live_error`
+        rather than aborting the command — local state is always shown.
+
+        Useful as the first call when an agent inherits a configured shell:
+        verifies host, alias, profile binding, and team in one shot.
+      DESC
       def status
         cfg = Wiq::Config.load(symbolized_options)
         raise Wiq::HostUnsetError unless cfg.host
@@ -114,6 +145,12 @@ module Wiq
       end
 
       desc "logout", "Remove a stored credential slot"
+      long_desc <<~DESC
+        Removes a single stored credential by host + alias. The PAT is NOT
+        revoked server-side — to revoke, use the web UI at
+        <host>/settings/personal_access_tokens. Logout just clears the
+        local file entry.
+      DESC
       def logout
         cfg = Wiq::Config.load(symbolized_options)
         raise Wiq::HostUnsetError unless cfg.host
@@ -135,9 +172,22 @@ module Wiq
       end
 
       desc "list", "List all stored credentials across hosts and aliases"
+      long_desc <<~DESC
+        Dumps every stored credential across all hosts and aliases. Never
+        includes the raw token (only token_prefix); safe to share or log.
+
+        Useful for agents inheriting a shared shell — they can see what's
+        available before invoking commands.
+      DESC
       def list
         entries = Wiq::Credentials.all_entries
-        render_index(entries, summary: "Stored credentials: #{entries.size}.")
+        render_index(
+          entries,
+          summary: "Stored credentials: #{entries.size}.",
+          breadcrumbs: [
+            { "cmd" => "wiq auth status --as <alias>", "description" => "Inspect a specific slot" }
+          ]
+        )
       end
 
       no_commands do

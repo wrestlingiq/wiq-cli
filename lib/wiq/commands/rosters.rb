@@ -4,6 +4,22 @@ module Wiq
   module Commands
     class Rosters < Base
       desc "list", "List rosters"
+      long_desc <<~DESC
+        Returns every roster on the calling profile's team, paginated.
+
+        Season filtering is a CLI-side projection (WIQ has no first-class
+        Season entity):
+          --season <year>       Resolves to paid_session ids whose date
+                                window overlaps that calendar year, then
+                                filters rosters whose roster_syncers point
+                                at any of those paid sessions.
+          --season-tag <tag>    Filters rosters carrying a tag with that
+                                exact name. Some teams tag rosters with
+                                conventions like "2025-26".
+
+        Each roster row embeds roster_syncers and taggings, which is what
+        --season uses to filter without needing extra calls.
+      DESC
       method_option :season, type: :numeric,
                              desc: "Filter to rosters whose syncers point at paid sessions overlapping this year"
       method_option :season_tag, type: :string, desc: "Filter to rosters carrying this tag"
@@ -32,14 +48,33 @@ module Wiq
           end
         end
 
-        render_index(records, total: total,
-                              summary: "Listed #{records.size} rosters.")
+        render_index(
+          records, total: total,
+          summary: "Listed #{records.size} rosters.",
+          breadcrumbs: [
+            { "cmd" => "wiq rosters show <id>", "description" => "Inspect a single roster" },
+            { "cmd" => "wiq reports run RosterReport --roster <id>",
+              "description" => "Export the roster as a report" }
+          ]
+        )
       end
 
       desc "show ID", "Fetch a single roster"
+      long_desc <<~DESC
+        Full roster payload: name, archived flag, age_division_id, taggings
+        (with tag metadata), roster_syncers (linkage to paid sessions), and
+        an embedded stats.roster_memberships_count.
+      DESC
       def show(id)
         roster = client.get("/api/v1/rosters/#{id}")
-        render(roster, summary: "Roster #{roster["id"]} — #{roster["name"]}")
+        render(roster,
+               summary: "Roster #{roster["id"]} — #{roster["name"]}",
+               breadcrumbs: [
+                 { "cmd" => "wiq reports run RosterStatsReport --roster #{roster["id"]} --start <date> --end <date>",
+                   "description" => "Pull stats for this roster" },
+                 { "cmd" => "wiq check_ins summary --roster #{roster["id"]} --start <date> --end <date>",
+                   "description" => "Attendance summary for this roster" }
+               ])
       end
     end
   end

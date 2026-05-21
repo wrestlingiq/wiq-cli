@@ -315,6 +315,33 @@ module Wiq
       }.freeze
 
       desc "run TYPE", "Create + (by default) poll a report"
+      long_desc <<~DESC
+        Submits a report to `POST /api/v1/reports` and (by default) polls
+        until status=ready. Returns the full report row including
+        `result` (jsonb), which is type-specific output.
+
+        TYPE can be any WIQ report class name. See `wiq reports types` for
+        the curated allowlist with recommendations, required args, and
+        per-type notes (admin_only flag, special arg semantics, etc.).
+
+        Common args (only those documented in TYPES are honored
+        server-side):
+          --roster <id>            roster_id (0 = all rosters)
+          --paid-session <id>      paid_session_id (0 = all, UsawExport only)
+          --event <id>             event_id (EventStatsReport)
+          --fundraiser <id>        fundraiser_id (Fundraiser* reports)
+          --online-store <id>      online_store_id (OnlineStore* reports)
+          --append-properties <ids...>  RosterReport custom columns
+          --include-archived-roster-tags  RosterReport tag inclusion
+          --days-threshold <7|14|30|60|90>  ChurnRiskReport window
+          --season <year>          Resolves to a paid_session_id via the
+                                   overlap rule; errors if multiple match
+
+        Polling: 2-second initial interval, exponential backoff to 30s
+        cap, default 5-minute timeout. Pass --no-wait to return the
+        report row immediately after submission (status=queued or
+        processing) and poll later with `wiq reports show <id> --wait`.
+      DESC
       method_option :start, type: :string, desc: "YYYY-MM-DD"
       method_option :end, type: :string, desc: "YYYY-MM-DD"
       method_option :roster, type: :numeric, desc: "args.roster_id (0 = all rosters)"
@@ -359,15 +386,36 @@ module Wiq
       end
 
       desc "show ID", "Fetch a single report (optionally poll)"
+      long_desc <<~DESC
+        Fetches a report by id. Pass --wait to poll until status=ready,
+        useful for "I kicked this off earlier, is it done yet?" flows.
+      DESC
       method_option :wait, type: :boolean, default: false
       method_option :timeout, type: :numeric, default: 300
       def show(id)
         report = options[:wait] ? self.class.poll(client, id, timeout: options[:timeout])
                                 : client.get("/api/v1/reports/#{id}")
-        render(report, summary: "Report ##{report["id"]} status=#{report["status"]}.")
+        render(report,
+               summary: "Report ##{report["id"]} status=#{report["status"]}.",
+               breadcrumbs: [
+                 { "cmd" => "wiq reports show #{id} --wait", "description" => "Poll until ready" }
+               ])
       end
 
       desc "types", "Print the curated report-type allowlist with recommendations"
+      long_desc <<~DESC
+        Dumps the curated TYPES allowlist with per-entry metadata:
+        description, permitted args, whether dates are required, the
+        recommended/preferred status, and an example invocation where
+        applicable.
+
+        Recommended starting point for any agent trying to pick a report
+        for a user question — read this once, then call
+        `wiq reports run <TYPE>` with the documented args.
+
+        Entries with `admin_only: true` (the 9 finance reports) require
+        an admin CoachProfile PAT. Non-admin coach PATs 403 on those.
+      DESC
       def types
         rows = TYPES.map do |type, info|
           row = {
@@ -390,7 +438,12 @@ module Wiq
                    "admin_only: true additionally require admin? — " \
                    "non-admin coach PATs 403 on those. recommended: true rows " \
                    "are WIQ-blessed picks; prefer: lists alternatives for " \
-                   "de-emphasized types."
+                   "de-emphasized types.",
+          breadcrumbs: [
+            { "cmd" => "wiq reports run <TYPE>", "description" => "Submit a report" },
+            { "cmd" => "wiq registrations questions",
+              "description" => "Discover question ids for RosterReport --append-properties" }
+          ]
         )
       end
 

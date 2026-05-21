@@ -18,27 +18,26 @@ Last updated: 2026-05-12 (after L1 ships).
   installed via `wiq setup claude`. Sections: invariants, output-mode
   matrix, ID resolution, pagination, common workflows. Hold until we have
   real agent-usage telemetry — written cold it's guesswork.
-- **Per-command `agent_notes` annotations.** Method-level prose blocks
-  that render in `wiq <cmd> --help --agent` as JSON. Useful for commands
-  with non-obvious behavior (recurring-event fan-out, season resolution).
-  Adopt incrementally as commands earn it.
-- **Recommendation pass on the other report types.** L1 only marked
-  CheckInSummary/Feed (recommended) and PracticeAttendance (deprecated).
-  The other 19 types in `Reports::TYPES` are neutral. Needs a pass from
-  the WIQ team to identify recommended picks per use case
-  (finance, roster ops, USAW/AAW, fundraising, …).
+- ~~**Per-command `agent_notes` annotations.**~~ SHIPPED via Thor
+  `long_desc` blocks on every command across all 11 groups. Surfaces in
+  `wiq <group> help <cmd>` today; Phase 2's `wiq <cmd> --help --agent`
+  will project it to structured JSON.
+- ~~**Recommendation pass on the other report types.**~~ SHIPPED — 20
+  REC, 1 DEP, 15 NEU, 9 admin_only across the 36 entries in
+  `Reports::TYPES`. User-curated.
 - **`wiq commands --json` / `wiq --help --agent`.** Full command tree
-  dump + structured JSON help on any command. Initial-plan items, useful
-  for agent discovery without scraping help text.
+  dump + structured JSON help on any command. Phase 2 — reads
+  `Thor.commands` introspection + the `long_desc` strings shipped in
+  Phase 1.
 - **`.surface` drift CI.** Snapshot of the command tree at repo root; CI
   fails on drift without an explicit update. Worth it once the command
   surface stabilizes (i.e., after L2 lands).
 
 ## Commands not yet exposed
 
-- **`wiq events types`** — list the team's allowed event_type strings
-  (practice, competition, dual_meet, private_lesson, …). ~30 minutes;
-  hardcoded allowlist in the CLI. Add when an agent trips on guessing.
+- ~~**`wiq events types`**~~ SHIPPED. Six canonical strings from
+  `app/models/event.rb` (practice, dual_meet, tournament, scramble,
+  private_lesson, other) surfaced via static command.
 - **`wiq events create`** — recurring practice/event creation
   (`POST /api/v1/events` with `repeat:` block). Write surface; deferred
   until v1.1.

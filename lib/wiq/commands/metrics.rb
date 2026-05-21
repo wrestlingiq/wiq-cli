@@ -26,15 +26,45 @@ module Wiq
       VALID_INTERVALS = %w[hourly daily weekly monthly].freeze
 
       desc "list", "Print the supported metric names"
+      long_desc <<~DESC
+        Static enumeration of the dashboard metrics WIQ exposes at
+        /api/v1/metrics/<name>. The `currency` flag tells you whether
+        values are integer cents (true) or counts (false).
+
+        Auth: every metric requires `authorize :finances, :show?`, which
+        in practice means admin-coach. Non-admin PATs return 403.
+      DESC
       def list
         rows = NAMES.map do |n|
           { "name" => n, "currency" => CURRENCY_METRICS.include?(n) }
         end
-        render_index(rows, summary: "Use `wiq metrics show <name>` to fetch a specific metric. " \
-                                     "Currency values are returned in integer cents.")
+        render_index(rows,
+                     summary: "Use `wiq metrics show <name>` to fetch a specific metric. " \
+                              "Currency values are returned in integer cents.",
+                     breadcrumbs: [
+                       { "cmd" => "wiq metrics show mrr", "description" => "Example: monthly recurring revenue" }
+                     ])
       end
 
       desc "show NAME", "Fetch a single dashboard metric"
+      long_desc <<~DESC
+        Pulls /api/v1/metrics/<name> with the standard range/interval
+        params. The server returns both a primary_series and a
+        comparison_series (the previous period of the same length), plus
+        primary_total and comparison_total. The CLI drops the
+        server-rendered `charts[]` blob entirely — it's HTML for
+        Highcharts and not useful headless.
+
+        Ranges: today, 7d, 4w, 3m, 12m, "year to date", custom.
+        With --range custom you must pass --start-date and --end-date
+        (YYYY-MM-DD); comparison_series will be empty for custom ranges.
+
+        Intervals: hourly, daily, weekly, monthly. Invalid values are
+        silently coerced to `daily` server-side.
+
+        Currency metrics return integer cents (divide by 100 for dollars).
+        Non-currency metrics return raw counts.
+      DESC
       method_option :range, type: :string, default: "7d", desc: VALID_RANGES.join(" | ")
       method_option :interval, type: :string, default: "daily",
                                enum: VALID_INTERVALS, desc: "interval_group"
@@ -65,7 +95,6 @@ module Wiq
         payload = client.get("/api/v1/metrics/#{name}", params)
         metrics = payload["metrics"] || {}
 
-        # Drop the server-rendered charts blob; not useful headless.
         data = {
           "name" => name,
           "currency" => CURRENCY_METRICS.include?(name),
@@ -77,8 +106,12 @@ module Wiq
           data["comparison_total"] = metrics["comparison_total"]
         end
 
-        render(data, summary: "metric=#{name} range=#{options[:range]} interval=#{options[:interval]}",
-                     meta: { "currency_unit" => CURRENCY_METRICS.include?(name) ? "cents" : "count" })
+        render(data,
+               summary: "metric=#{name} range=#{options[:range]} interval=#{options[:interval]}",
+               meta: { "currency_unit" => CURRENCY_METRICS.include?(name) ? "cents" : "count" },
+               breadcrumbs: [
+                 { "cmd" => "wiq metrics list", "description" => "See all supported metrics" }
+               ])
       end
     end
   end

@@ -7,6 +7,25 @@ module Wiq
       ATTENTION_MODES = %w[needs_attention handled].freeze
 
       desc "list", "List individual prospects (one row per kid)"
+      long_desc <<~DESC
+        Returns one row per prospect (kid), sorted newest-first.
+
+        Funnel stages: inquiry → trial_scheduled → trialing →
+        trial_complete → converted (terminal) | didnt_join (terminal) |
+        archived (terminal).
+
+        Filters:
+          --query              Free-text search across family contact
+                               (name/email/phone). When set, ALL other
+                               filters are bypassed server-side.
+          --attention          needs_attention | handled
+          --stage              One funnel stage
+          --assigned-to-me     Only families assigned to the calling coach
+          --assigned-coach <id>  Same, for any coach by id
+
+        Pair with `wiq prospect_families list` to see leads at the
+        household level instead.
+      DESC
       method_option :query, type: :string,
                             desc: "Free-text search across family name/email/phone (bypasses other filters)"
       method_option :attention, type: :string, enum: ATTENTION_MODES,
@@ -39,13 +58,46 @@ module Wiq
       end
 
       desc "show ID", "Fetch a single prospect"
+      long_desc <<~DESC
+        Full prospect payload: child name + DOB + academic class,
+        experience_level, current stage + stage_changed_at, all the
+        funnel timestamps (trial_scheduled_at, trial_completed_at,
+        converted_at, archived_at), needs_follow_up + follow_up_reason,
+        days_in_stage and days_since_follow_up, plus the linked
+        wrestler_profile (if converted), paid_session (if trialing),
+        and conversion_billing_subscription with plan name (if converted
+        on a recurring sub).
+      DESC
       def show(id)
         prospect = client.get("/api/v1/prospects/#{id}")
         render(prospect,
-               summary: "Prospect #{prospect["id"]} — #{prospect["child_first_name"]} #{prospect["child_last_name"]} (stage=#{prospect["stage"]}).")
+               summary: "Prospect #{prospect["id"]} — #{prospect["child_first_name"]} #{prospect["child_last_name"]} (stage=#{prospect["stage"]}).",
+               breadcrumbs: [
+                 { "cmd" => "wiq prospect_families show #{prospect["prospect_family_id"]}",
+                   "description" => "Family this prospect belongs to" },
+                 { "cmd" => "wiq prospect_families notes #{prospect["prospect_family_id"]}",
+                   "description" => "Contact log for the family" }
+               ])
       end
 
       desc "summary", "Pipeline dashboard: counts per stage + conversion rate"
+      long_desc <<~DESC
+        Single-call dashboard. Returns an unwrapped object (not paginated)
+        with stage-bucketed counts, needs-action totals, family totals,
+        and an aggregate conversion_rate.
+
+        Cohort options for the conversion calculation:
+          --start-date / --end-date    Explicit window (must be paired)
+          --conversion-days N          Look-back of 30, 60, 90, or 180
+                                       days (default 90)
+
+        Both numerator and denominator are pinned to the same cohort
+        (prospects created in the window). Without that pin, an old
+        prospect converting now would push the rate past 100%.
+
+        Best agent entry point for "how's our pipeline?" — single round
+        trip, structured numbers.
+      DESC
       method_option :start_date, type: :string,
                                  desc: "Cohort window start (YYYY-MM-DD). Requires --end-date."
       method_option :end_date, type: :string,
