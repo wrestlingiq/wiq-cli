@@ -1,5 +1,12 @@
 # wiq-cli
 
+> [!WARNING]
+> **Research preview — v0.1.0.** This is an exploratory tool. The command
+> surface, output shapes, and behavior are subject to change quickly and
+> without backwards compatibility guarantees between releases. Not yet
+> recommended for production-critical automation. Pin your gem version
+> if you build anything load-bearing on top of it.
+
 Read-only command-line interface for [WrestlingIQ](https://www.wrestlingiq.com).
 Designed to be driven by both humans and AI agents (Claude Code, Cursor,
 etc.) via per-user personal access tokens (PATs).

@@ -4,3 +4,4 @@ pkg/
 .bundle/
 tmp/
 .claude/
+.idea/
