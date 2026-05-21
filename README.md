@@ -76,9 +76,9 @@ questions directly.
 
 ## Status
 
-v1. 27 commands across 12 groups, ~90 RSpec smoke examples. Reads-only
-except for report submission (the API's canonical async pattern).
-Write commands deferred — see `docs/deferred.md`.
+v0.1.0 — 29 commands across 16 groups, 113 RSpec smoke examples.
+Reads-only except for report submission (the API's canonical async
+pattern). Write commands deferred — see `docs/deferred.md`.
 
 ## License
 

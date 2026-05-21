@@ -181,6 +181,57 @@ module Wiq
         admin_only: true
       },
 
+      "failed-payments-recent" => {
+        name: "failed-payments-recent",
+        category: "finance",
+        question: "Which families have outstanding failed payments (after filtering out failures that were later retried successfully)?",
+        parameters: [
+          { name: "since_date", type: "date", required: true,
+            description: "Earliest created_at to scan from (YYYY-MM-DD)" }
+        ],
+        recipe: [
+          "wiq charges list --status failed --since <since_date> --all"
+        ],
+        admin_only: true,
+        notes: "CRITICAL: a failed charge alone is NOT actionable. " \
+               "Stripe/Justifi retry subscriptions automatically and " \
+               "customers retry registrations after card declines, so most " \
+               "failures resolve themselves. The cross-check is mandatory:\n\n" \
+               "After the step-1 list returns, for EACH failed charge:\n" \
+               "  1. Note its billing_profile_id, chargeable_id, " \
+               "chargeable_type, and created_at.\n" \
+               "  2. Run `wiq charges list --billing-profile <id> " \
+               "--status successful --since <failure_created_at> --all`.\n" \
+               "  3. Drop the failed charge if any returned successful " \
+               "charge has matching chargeable_id AND chargeable_type.\n\n" \
+               "What remains is the actionable set: failures with no later " \
+               "successful retry on the same item. Surface those to the " \
+               "user with family name + amount + chargeable description."
+      },
+
+      "family-payment-history" => {
+        name: "family-payment-history",
+        category: "finance",
+        question: "What has this family paid (or tried to pay) recently?",
+        parameters: [
+          { name: "billing_profile_id", type: "integer", required: true,
+            description: "Discover via `wiq billing_profiles show <profile_id> --profile-type ParentProfile`" },
+          { name: "since_date", type: "date", required: false, default: "90 days ago",
+            description: "Earliest created_at; default is roughly 90 days back when omitted client-side" }
+        ],
+        recipe: [
+          "wiq charges list --billing-profile <billing_profile_id> [--since <since_date>] --all"
+        ],
+        admin_only: true,
+        notes: "Returns the family's charge history — both successful and " \
+               "failed attempts, with the chargeable description (what was " \
+               "paid for) on each row. To go from a wrestler name to a " \
+               "billing_profile_id: `wiq wrestlers list --query \"Name\"`, " \
+               "then `wiq wrestlers show <id>` to find the parent profile " \
+               "id, then `wiq billing_profiles show <parent_id> " \
+               "--profile-type ParentProfile`."
+      },
+
       "scholarship-audit" => {
         name: "scholarship-audit",
         category: "finance",

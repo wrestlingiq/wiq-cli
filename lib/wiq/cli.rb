@@ -79,5 +79,11 @@ module Wiq
 
     desc "wrestlers SUBCOMMAND", "Search wrestlers — narrow ID-discovery surface (list, show)"
     subcommand "wrestlers", Wiq::Commands::Wrestlers
+
+    desc "charges SUBCOMMAND", "Payment history — list charges by family, status, type, date (admin only)"
+    subcommand "charges", Wiq::Commands::Charges
+
+    desc "billing_profiles SUBCOMMAND", "Look up a parent or coach's billing profile (admin only)"
+    subcommand "billing_profiles", Wiq::Commands::BillingProfiles
   end
 end

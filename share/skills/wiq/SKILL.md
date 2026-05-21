@@ -199,6 +199,37 @@ type-specific jsonb payload.
   interchangeably in different endpoints — the CLI normalizes, but if
   you're constructing URLs yourself, expect the inconsistency.
 
+## Payment debugging
+
+For "did Johnny pay X?" / "what's failing right now?" / "is this family's
+subscription healthy?" — use the charges surface (admin coach PAT only):
+
+```bash
+wiq charges list --status failed --since 2026-04-01
+wiq charges list --billing-profile <id> --since 2026-04-01 --all
+wiq billing_profiles show <parent_profile_id> --profile-type ParentProfile
+```
+
+**Critical: a failed charge alone is NEVER actionable.** Stripe/Justifi
+retry subscriptions automatically and customers re-enter cards after
+declines, so most failures resolve themselves silently. Before
+flagging anything as needing follow-up, cross-check that no successful
+charge for the same `(billing_profile_id, chargeable_id,
+chargeable_type)` tuple exists AFTER the failure's `created_at`. The
+canonical pattern is in `wiq workflows show failed-payments-recent`.
+
+To go from a wrestler name to a billing_profile_id:
+
+```bash
+wiq wrestlers list --query "Johnny Smith"               # find wrestler_id
+wiq wrestlers show <wrestler_id>                        # find parent_profile_id
+wiq billing_profiles show <parent_id> --profile-type ParentProfile  # billing_profile_id
+wiq charges list --billing-profile <bp_id>              # their payment history
+```
+
+WrestlerProfile cannot have billing profiles directly — always walk
+through a parent.
+
 ## ID discovery
 
 When you need a wrestler's id to feed into another command (e.g.

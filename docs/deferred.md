@@ -60,6 +60,10 @@ Last updated: 2026-05-12 (after L1 ships).
   until v1.1.
 - **`wiq check_ins record`** — mark attendance via CLI
   (`POST/PUT /api/v1/events/:id/check_ins`). Write surface; deferred.
+- **`wiq invoice_payments list`** — receipts/payment-instance granularity
+  for tracing money on a specific subscription. Endpoint exists
+  (`GET /api/v1/billing_subscriptions/:id/invoice_payments`). Hold
+  until a real use case beats `wiq charges list` for clarity.
 - ~~**`wiq wrestlers list`**~~ SHIPPED narrow. Default per_page=20, no
   --all flag, base payload kept tight. Filters translate to Ransack
   (--first-name, --last-name, --weight-class, --academic-class, --age,
