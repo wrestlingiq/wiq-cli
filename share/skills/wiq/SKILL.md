@@ -113,6 +113,28 @@ Common codes and the right response:
 | `report_failed` | The report ran but errored server-side | Inspect `details` (the report's result jsonb) |
 | `report_timeout` | Polling exceeded `--timeout` | Re-run with longer `--timeout` or check later with `wiq reports show <id>` |
 
+## Rate-limit etiquette
+
+WIQ enforces **100 requests per 3 seconds per source IP** (≈ 33 req/sec).
+It's a per-IP throttle, not per-PAT — multi-club aliases on the same
+workstation share the budget.
+
+In practice the CLI rarely hits it because:
+
+- Pagination (`--all`) walks pages sequentially, naturally rate-limited
+  by request latency (100–500ms round-trip = 2–10 req/sec, well under).
+- Report polling backs off exponentially (2s → 30s cap).
+- Transient 429s are auto-retried by the Faraday middleware (3 attempts,
+  exponential backoff, `Retry-After` honored).
+
+**Agent guidance:** invoke `wiq` commands **sequentially** from scripts.
+Don't parallelize a fan-out (e.g. running three `wiq metrics show`
+calls at once) — the per-IP budget is shared across every concurrent
+process. If you see `code: "rate_limited"` after the auto-retries
+exhaust, treat it as backpressure: wait ~3 seconds, then continue
+sequentially. It's not a bug; you're just moving faster than the
+server wants you to.
+
 ## Pagination
 
 Index endpoints (`wiq rosters list`, `wiq events list`, etc.) page at 30
