@@ -73,5 +73,8 @@ module Wiq
 
     desc "workflows SUBCOMMAND", "Named multi-step recipes for common club-admin questions (list, show)"
     subcommand "workflows", Wiq::Commands::Workflows
+
+    desc "setup SUBCOMMAND", "Install integration files (Claude Code skill, future: Cursor, etc.)"
+    subcommand "setup", Wiq::Commands::Setup
   end
 end

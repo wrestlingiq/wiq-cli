@@ -18,10 +18,15 @@ Last updated: 2026-05-12 (after L1 ships).
   Spec invariants enforce parameter↔placeholder consistency and
   admin_only drift detection across `Workflows::ALL` and
   `Reports::TYPES`.
-- **L3 — SKILL.md + Claude plugin.** Bundled at `share/skills/wiq/SKILL.md`,
-  installed via `wiq setup claude`. Sections: invariants, output-mode
-  matrix, ID resolution, pagination, common workflows. Hold until we have
-  real agent-usage telemetry — written cold it's guesswork.
+- ~~**L3 — SKILL.md + Claude Code installer.**~~ SHIPPED.
+  `share/skills/wiq/SKILL.md` (lean — 10.8 KB) bundled in the gem,
+  installed via `wiq setup claude` (default `~/.claude/skills/wiq/`,
+  `--project` for per-project, `--force` to overwrite, `--print` to
+  inspect). Uses Claude Code's canonical skill format (no plugin
+  wrapper — confirmed via current docs). Sections cover bootstrap,
+  three core surfaces (commands/workflows/reports), auth model,
+  multi-club aliases, output modes, error codes table, pagination,
+  report decision matrix, common gotchas, what's NOT available.
 - ~~**Per-command `agent_notes` annotations.**~~ SHIPPED via Thor
   `long_desc` blocks on every command across all 11 groups. Surfaces in
   `wiq <group> help <cmd>` today; Phase 2's `wiq <cmd> --help --agent`
@@ -84,8 +89,9 @@ Last updated: 2026-05-12 (after L1 ships).
   distribution channel for Mac users. Gem-only install for v1.
 - **`curl …/install-cli | bash` script.** Agent-friendly env-setup
   installer. Gem-only install for v1.
-- **README.md / CHANGELOG.md.** None exist today. Add when the gem is
-  ready for external publish.
+- ~~**README.md**~~ SHIPPED (lean — install, bootstrap, common
+  commands, multi-club, Claude integration, output modes, pointers
+  to docs/). **CHANGELOG.md** still deferred — wait for v0.2.
 - **Integration / command-level tests.** Smoke layer landed
   (`spec/{pagination,credentials,errors,config,output,client,season_resolver}_spec.rb`,
   57 examples covering config resolution, error mapper, pagination,
