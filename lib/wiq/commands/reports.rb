@@ -14,10 +14,15 @@ module Wiq
       #   prefer:      array of better alternatives (only when recommended: false)
       #   notes:       agent-facing guidance, surfaced in `wiq reports types --agent`
       #   example:     concrete `wiq reports run ...` invocation
-      #   gating:      free-text precondition ("admin", "elite", "payments_enabled",
-      #                "usaw_enabled", "aau_enabled", "donations_allowed",
-      #                "online_stores_exist") — surfaced so an agent can
-      #                anticipate 403s on permission-gated tabs.
+      #   admin_only:  true for the 9 finance reports gated by Pundit's
+      #                acceptable_finance_permissions? (= is_admin?). Non-finance
+      #                reports require a CoachProfile PAT on the team. PATs bound
+      #                to ParentProfile or WrestlerProfile 403 on any report POST.
+      #
+      # Note on auth: "elite" is a Team#account_type (gates UI tab rendering),
+      # not a per-user permission — the report POST doesn't check it. Same for
+      # "payments_enabled" — that's a team attribute, not a permission flag.
+      # The only API-level gate beyond CoachProfile is admin? for finance reports.
       TYPES = {
         # ── Roster tab ───────────────────────────────────────────────
         "RosterReport" => {
@@ -27,16 +32,19 @@ module Wiq
           recommended: true,
           notes: "Supports custom columns via --append-properties <q_ids>: pass " \
                  "registration_question ids (discoverable via " \
-                 "`wiq registrations questions`) to surface intake data as extra " \
-                 "columns. roster_id=0 means \"all rosters\".",
+                 "`wiq registrations questions --visibility public`, plus " \
+                 "--visibility private if admin) to surface intake data as " \
+                 "extra columns. Skip questions with a deleted_at — they're " \
+                 "still in the index payload but won't render. roster_id=0 " \
+                 "means \"all rosters\". Each appended question becomes a column.",
           example: "wiq reports run RosterReport --roster 42 --append-properties 17 23"
         },
         "FullExportWrestlerReport" => {
           args: %w[],
           dates: :optional,
           desc: "Full wrestler export — every known field for every wrestler",
-          notes: "Heavy payload. Prefer RosterReport with --append-properties unless " \
-                 "you actually need an exhaustive dump."
+          notes: "Very slow on large teams. Prefer RosterReport with " \
+                 "--append-properties unless you actually need the exhaustive dump."
         },
 
         # ── Invite tab ───────────────────────────────────────────────
@@ -44,7 +52,11 @@ module Wiq
           args: %w[],
           dates: :optional,
           desc: "Wrestlers / parents / coaches invited but not yet account-created",
-          recommended: true
+          recommended: true,
+          notes: "Mostly useful for high school teams or anywhere a coach is " \
+                 "manually inviting accounts. Club teams should prefer the " \
+                 "registration flow — parents register, then invite their own " \
+                 "kids — so this report stays empty for them."
         },
 
         # ── USAW / AAU tab ───────────────────────────────────────────
@@ -53,41 +65,37 @@ module Wiq
           dates: :optional,
           desc: "All USA Wrestling card info on file, one row per wrestler",
           recommended: true,
-          notes: "Gating: requires team.usaw_enabled. Returns 403 / empty if USAW " \
-                 "collection is turned off."
+          notes: "UI hides this tab when USAW collection is off (team setting)."
         },
         "UsawExpiredReport" => {
           args: %w[roster_id],
           dates: :optional,
           desc: "Wrestlers missing or with expired USAW memberships",
-          notes: "Gating: team.usaw_enabled. Output is also a bulk-purchase " \
-                 "upload format for USAW's system."
+          notes: "Output is also a bulk-purchase upload format for USAW's system."
         },
         "UsawExportReport" => {
           args: %w[roster_id paid_session_id],
           dates: :optional,
           desc: "USAW bulk-purchase upload format",
-          notes: "Gating: team.usaw_enabled. Only report that accepts " \
-                 "paid_session_id=0 to mean \"all sessions\"."
+          notes: "Only report that accepts paid_session_id=0 to mean " \
+                 "\"all sessions\"."
         },
         "AauReport" => {
           args: %w[roster_id],
           dates: :optional,
           desc: "All AAU card info on file, one row per wrestler",
           recommended: true,
-          notes: "Gating: requires team.aau_enabled."
+          notes: "UI hides this tab when AAU collection is off (team setting)."
         },
         "AauExpiredReport" => {
           args: %w[roster_id],
           dates: :optional,
-          desc: "Wrestlers missing or with expired AAU memberships",
-          notes: "Gating: team.aau_enabled."
+          desc: "Wrestlers missing or with expired AAU memberships"
         },
         "AauExportReport" => {
           args: %w[roster_id],
           dates: :optional,
-          desc: "AAU bulk-purchase upload format",
-          notes: "Gating: team.aau_enabled."
+          desc: "AAU bulk-purchase upload format"
         },
 
         # ── Stats tab ────────────────────────────────────────────────
@@ -117,192 +125,192 @@ module Wiq
           dates: :required,
           desc: "Summarized check-ins for a date range — per-wrestler totals",
           recommended: true,
-          notes: "WIQ-recommended for attendance questions. Aggregates " \
-                 "server-side; smaller payload than the feed. The UI doesn't " \
-                 "expose a roster picker, but roster_id IS accepted via the API.",
-          example: "wiq reports run CheckInSummaryReport --start 2026-05-01 --end 2026-05-31 --roster 42"
+          notes: "One row per wrestler over the date range — totals across all " \
+                 "their check-ins in the window. If you want one row per " \
+                 "check-in event use CheckInFeedReport. The UI doesn't expose " \
+                 "a roster picker; counts span the whole team.",
+          example: "wiq reports run CheckInSummaryReport --start 2026-05-01 --end 2026-05-31"
         },
         "CheckInFeedReport" => {
           args: %w[roster_id],
           dates: :required,
           desc: "Raw check-in feed — one row per check-in, sorted by time",
           recommended: true,
-          notes: "WIQ-recommended when row-level detail matters (timestamps, late " \
-                 "arrivals, notes, class_pass usage). UI doesn't show a roster " \
-                 "picker but the API accepts roster_id.",
-          example: "wiq reports run CheckInFeedReport --start 2026-05-01 --end 2026-05-31 --roster 42"
+          notes: "Useful for \"who came to the club today and what registrations " \
+                 "did they have at check-in time.\" Larger payload than the " \
+                 "summary.",
+          example: "wiq reports run CheckInFeedReport --start 2026-05-01 --end 2026-05-31"
         },
         "PracticeAttendanceReport" => {
           args: %w[roster_id],
           dates: :required,
-          desc: "Legacy attendance roll-up across practices in a date range",
+          desc: "Practice-event attendance roll-up across a date range",
           recommended: false,
           prefer: %w[CheckInSummaryReport CheckInFeedReport],
-          notes: "Older format, kept for HS coach workflows. WIQ team recommends " \
-                 "Check-In Summary or Check-In Feed instead."
+          notes: "Primarily used by high school coaches who need a report for " \
+                 "their athletic director about who was present vs absent. " \
+                 "Only pulls practice events. Not recommended for club teams — " \
+                 "use CheckInSummaryReport or CheckInFeedReport instead."
         },
         "LastPracticeAttendedReport" => {
           args: %w[roster_id],
           dates: :optional,
           desc: "Days since last practice attended, per wrestler",
           recommended: true,
-          notes: "Canonical \"find ghost wrestlers\" tool."
+          notes: "Useful for following up with people who haven't shown up to " \
+                 "practice in a while — particularly for seasonal clubs."
         },
         "ChurnRiskReport" => {
           args: %w[roster_id days_threshold],
           dates: :optional,
           desc: "Active recurring subscribers who haven't checked in within a window",
           recommended: true,
-          notes: "Pass --days-threshold (7|14|30|60|90). NOTE: backend permit " \
-                 "list does not yet include days_threshold; until the WIQ-app " \
-                 "fix ships, the param is silently dropped and the report uses " \
-                 "its 30-day default. Proactive churn-prevention tool.",
+          notes: "Useful for subscription-based clubs to identify who might " \
+                 "cancel soon, based on no check-in within a chosen window. " \
+                 "Pass --days-threshold (7|14|30|60|90); any other value " \
+                 "falls back to the model's 30-day default.",
           example: "wiq reports run ChurnRiskReport --roster 0 --days-threshold 30"
         },
         "CheckInReport" => {
           args: %w[roster_id],
           dates: :required,
           desc: "Extended attendance — one row per check-in INCLUDING Q&A responses",
-          notes: "UI labels this \"Attendance Extended (with questions)\". Same " \
-                 "shape as CheckInFeedReport PLUS the registration_answer values " \
-                 "collected at check-in time. Use when Q&A capture matters; " \
-                 "otherwise prefer CheckInFeedReport."
+          notes: "UI labels this \"Attendance Extended (with questions).\" Same " \
+                 "shape as CheckInFeedReport PLUS the registration_answer " \
+                 "values collected at check-in time. Use when Q&A capture " \
+                 "matters; otherwise prefer CheckInFeedReport."
         },
 
-        # ── Subscription tab (elite + admin) ─────────────────────────
+        # ── Subscription tab (admin-gated UI; non-finance reports below
+        # only require coach access at the API level) ────────────────
         "MembershipSummaryReport" => {
           args: %w[],
           dates: :optional,
           desc: "Every subscription ever created, one row each",
           recommended: true,
-          notes: "Gating: requires team.elite? AND admin permission."
+          admin_only: true
         },
         "CancelledSubscriptionsReport" => {
           args: %w[],
           dates: :optional,
-          desc: "Canceled subscriptions, ordered by cancellation date",
-          notes: "Gating: elite + admin."
+          desc: "Canceled subscriptions, ordered by cancellation date"
         },
         "CurrentlyPausedSubscriptionsReport" => {
           args: %w[],
           dates: :optional,
-          desc: "Currently paused subscriptions, ordered by paused date",
-          notes: "Gating: elite + admin."
+          desc: "Currently paused subscriptions, ordered by paused date"
         },
         "ExpiringSubscriptionsReport" => {
           args: %w[],
           dates: :required,
           desc: "Subscriptions expiring in a date range (past or future)",
           recommended: true,
-          notes: "Gating: elite + admin. Future dates plan retention outreach; " \
-                 "past dates audit what already churned."
+          notes: "Past dates audit churn; future dates plan retention outreach."
         },
         "DiscountedSubscriptionsReport" => {
           args: %w[],
           dates: :optional,
-          desc: "Subscriptions (active or canceled) with a scholarship applied",
-          notes: "Gating: elite + admin."
+          desc: "Subscriptions (active or canceled) with a scholarship applied"
         },
         "WrestlersWithoutSubscriptionsReport" => {
           args: %w[],
           dates: :optional,
-          desc: "Wrestlers without an active recurring subscription",
-          recommended: true,
-          notes: "Gating: elite + admin. Standard AR follow-up tool."
+          desc: "Wrestlers without an active recurring subscription"
         },
 
-        # ── Registration tab (admin) ─────────────────────────────────
+        # ── Registration tab ────────────────────────────────────────
         "SessionRegistrationAnswerReport" => {
           args: %w[paid_session_id],
           dates: :optional,
           desc: "Full Q&A export of info submitted by parents at signup",
           recommended: true,
-          notes: "Gating: admin. Pass --paid-session <id> — required."
+          notes: "Pass --paid-session <id> — required."
         },
         "PaidSessionAccountingReport" => {
           args: %w[paid_session_id],
           dates: :optional,
           desc: "Line-item charges for a registration session",
           recommended: true,
-          notes: "Gating: admin AND team.payments_enabled. " \
-                 "Pass --paid-session <id> — required."
+          admin_only: true,
+          notes: "Pass --paid-session <id> — required."
         },
         "RegistrationFinanceSummaryReport" => {
           args: %w[],
           dates: :required,
-          desc: "Financial summary, one row per session",
-          notes: "Gating: admin AND team.payments_enabled."
+          desc: "Financial summary, one row per session"
         },
         "OverdueRegistrationReport" => {
           args: %w[],
           dates: :optional,
           desc: "Overdue installment registrations",
           recommended: true,
-          notes: "Gating: admin AND team.payments_enabled. Standard AR tool."
+          admin_only: true,
+          notes: "Standard AR follow-up tool."
         },
         "InProgressRegistrationReport" => {
           args: %w[],
           dates: :optional,
           desc: "Carts that haven't finished signup (abandoned-cart audit)",
-          notes: "Gating: admin AND team.payments_enabled."
+          admin_only: true
         },
 
-        # ── Scholarship tab (admin + payments) ───────────────────────
+        # ── Scholarship tab ──────────────────────────────────────────
         "ScholarshipAuditReport" => {
           args: %w[],
           dates: :required,
           desc: "Scholarship code usage across registrations + subscriptions",
           recommended: true,
-          notes: "Gating: admin AND team.payments_enabled."
+          admin_only: true
         },
 
-        # ── Donor tab (donations + admin) ────────────────────────────
+        # ── Donor tab ────────────────────────────────────────────────
         "RecurringDonorReport" => {
           args: %w[],
           dates: :optional,
           desc: "Active recurring donors",
           recommended: true,
-          notes: "Gating: admin AND (team.donations_allowed OR donation_page_enabled)."
+          admin_only: true
         },
         "DonationTransactionReport" => {
           args: %w[],
           dates: :required,
           desc: "All payments that included a donation",
           recommended: true,
-          notes: "Gating: admin AND (team.donations_allowed OR donation_page_enabled)."
+          admin_only: true
         },
 
-        # ── Fundraiser tab (admin) ───────────────────────────────────
+        # ── Fundraiser tab ───────────────────────────────────────────
         "FundraiserSummaryReport" => {
           args: %w[fundraiser_id],
           dates: :optional,
           desc: "Fundraiser results, one row per contributor",
           recommended: true,
-          notes: "Gating: admin. --fundraiser required."
+          admin_only: true,
+          notes: "Pass --fundraiser <id> — required."
         },
         "FundraiserAccountingReport" => {
           args: %w[fundraiser_id],
           dates: :optional,
           desc: "Fundraiser line items, one row per item purchased",
-          notes: "Gating: admin. --fundraiser required. Drill-down of " \
+          admin_only: true,
+          notes: "Pass --fundraiser <id> — required. Drill-down of " \
                  "FundraiserSummaryReport."
         },
 
-        # ── Online Store tab (admin + stores exist) ──────────────────
+        # ── Online Store tab ─────────────────────────────────────────
         "OnlineStoreSummaryReport" => {
           args: %w[online_store_id],
           dates: :optional,
           desc: "Summary of store orders",
           recommended: true,
-          notes: "Gating: admin AND at least one online store. " \
-                 "--online-store required."
+          notes: "Pass --online-store <id> — required."
         },
         "OnlineStoreDetailReport" => {
           args: %w[online_store_id],
           dates: :optional,
           desc: "Detailed store orders, one row per line item",
-          notes: "Gating: admin AND at least one online store. " \
-                 "--online-store required. Drill-down of the summary."
+          notes: "Pass --online-store <id> — required. Useful to hand off to a " \
+                 "gear or printing partner who needs sku-level data."
         }
       }.freeze
 
@@ -320,7 +328,7 @@ module Wiq
                                                    desc: "Include archived roster tags (RosterReport)"
       method_option :days_threshold, type: :numeric,
                                      enum: [7, 14, 30, 60, 90],
-                                     desc: "args.days_threshold (ChurnRiskReport; backend permit fix in flight)"
+                                     desc: "args.days_threshold (ChurnRiskReport)"
       method_option :name, type: :string, desc: "Display name (default: CLI <type> <range>)"
       method_option :season, type: :numeric, desc: "Resolve to paid_session_id via overlap with calendar year"
       method_option :wait, type: :boolean, default: true
@@ -370,12 +378,20 @@ module Wiq
           }
           row["recommended"] = info[:recommended] if info.key?(:recommended)
           row["prefer"] = info[:prefer] if info[:prefer]
+          row["admin_only"] = info[:admin_only] if info[:admin_only]
           row["notes"] = info[:notes] if info[:notes]
           row["example"] = info[:example] if info[:example]
           row
         end
-        render_index(rows, summary: "Documented report types — `recommended: true` rows are the " \
-                                    "WIQ-blessed picks; `prefer:` lists alternatives for de-emphasized types.")
+        render_index(
+          rows,
+          summary: "Documented report types. Auth: every report POST requires a " \
+                   "CoachProfile-bound PAT on the team. The 9 entries with " \
+                   "admin_only: true additionally require admin? — " \
+                   "non-admin coach PATs 403 on those. recommended: true rows " \
+                   "are WIQ-blessed picks; prefer: lists alternatives for " \
+                   "de-emphasized types."
+        )
       end
 
       # Class-level poller used by reports + check_ins summary.

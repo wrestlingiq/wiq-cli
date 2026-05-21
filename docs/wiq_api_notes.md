@@ -261,11 +261,27 @@ file with the WIQ team.
       `GET /api/v1/registration_questions`.
     - `include_archived_roster_tags: true` → also `RosterReport`-only in
       the UI, paired with the column-add feature.
-  - **Known backend gap:** `days_threshold` (used by `ChurnRiskReport`,
-    7/14/30/60/90) is sent by the Vue UI but **not** in the permit list.
-    The model silently falls back to its 30-day default. CLI exposes
-    `--days-threshold` and sends it anyway; until the WIQ-app permit fix
-    ships, the param is dropped server-side.
+  - `days_threshold` (used by `ChurnRiskReport`, 7/14/30/60/90) — in the
+    permit list as of the May 2026 WIQ-app fix. The CLI's
+    `--days-threshold` flag lands unchanged on the model.
+
+**Auth model (POST /api/v1/reports):**
+
+- Every report POST requires a `CoachProfile`-bound PAT on the same team
+  (`coach_belongs_to_team?` in `ReportPolicy#create?`). Parent/wrestler
+  PATs return 403 with body `"Personal access tokens are read-only..."`
+  via `enforce_pat_restrictions` — reports is the one write currently on
+  the PAT allowlist.
+- A subset of report types — the 9 listed in `Report.finance_types`
+  (Membership, PaidSessionAccounting, RecurringDonor, DonationTransaction,
+  FundraiserSummary, FundraiserAccounting, InProgressRegistration,
+  OverdueRegistration, ScholarshipAudit) — additionally require
+  `is_admin?`. Pundit raises before save, so a denied call never
+  enqueues a denatured report.
+- **`elite` and `payments_enabled` are NOT API gates.** Both are
+  team-level attributes that affect UI tab rendering only. A coach on a
+  non-elite team CAN successfully POST a `MembershipSummaryReport` via
+  the API as long as they're admin.
   - Response: `201 Created` with the full report jbuilder
     (`id, created_at, updated_at, type, processed_at, start_at, end_at, name,
     version, status, result, args`). `status` is `"requested"` momentarily;

@@ -101,12 +101,9 @@ Last updated: 2026-05-12 (after L1 ships).
 
 ## Backend asks (push back to WIQ app team)
 
-- **`days_threshold` permit fix on `Api::V1::ReportsController`** — IN
-  FLIGHT (matt is handling). The Vue form sends it for `ChurnRiskReport`
-  but the controller's StrongParams allowlist doesn't include it, so it
-  gets silently dropped and the model falls back to its 30-day default.
-  CLI already exposes `--days-threshold` and sends the value; once the
-  permit fix lands, the CLI works as-documented without further changes.
+- ~~**`days_threshold` permit fix on `Api::V1::ReportsController`**~~ —
+  SHIPPED. The CLI's `--days-threshold` flag now lands on the model
+  unchanged; no further CLI work needed.
 - **Echo `request_id`** in the response body or `X-Request-ID` header,
   for support correlation. Today the CLI can't give a customer a request
   ID to ship to support.
