@@ -45,6 +45,8 @@ module Wiq
           records, total: total,
           summary: "Listed #{records.size} check-ins for wrestler #{wrestler_id}.",
           breadcrumbs: [
+            { "cmd" => "wiq wrestlers show #{wrestler_id}",
+              "description" => "See the wrestler's profile" },
             { "cmd" => "wiq reports run LastPracticeAttendedReport --roster <id>",
               "description" => "Find ghost wrestlers across a roster" }
           ]

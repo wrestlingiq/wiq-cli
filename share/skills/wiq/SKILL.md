@@ -199,6 +199,24 @@ type-specific jsonb payload.
   interchangeably in different endpoints — the CLI normalizes, but if
   you're constructing URLs yourself, expect the inconsistency.
 
+## ID discovery
+
+When you need a wrestler's id to feed into another command (e.g.
+`wiq check_ins wrestler <id>`):
+
+```bash
+wiq wrestlers list --query "Jane Smith"
+wiq wrestlers list --last-name Smith
+wiq wrestlers list --roster 42 --weight-class 132
+```
+
+Narrow surface on purpose: default page size 20, no `--all` flag.
+For exhaustive exports go through `wiq reports run RosterReport`
+(with `--append-properties` for custom columns) or
+`wiq reports run FullExportWrestlerReport`. The list defaults to
+`profile_type=teammate` (matching the WIQ web UI default); pass
+`--profile-type alumnus|guest|all` to widen.
+
 ## What's NOT available (yet)
 
 The CLI is read-only by design except for report submission. You

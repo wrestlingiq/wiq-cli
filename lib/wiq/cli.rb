@@ -76,5 +76,8 @@ module Wiq
 
     desc "setup SUBCOMMAND", "Install integration files (Claude Code skill, future: Cursor, etc.)"
     subcommand "setup", Wiq::Commands::Setup
+
+    desc "wrestlers SUBCOMMAND", "Search wrestlers — narrow ID-discovery surface (list, show)"
+    subcommand "wrestlers", Wiq::Commands::Wrestlers
   end
 end

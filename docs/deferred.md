@@ -60,9 +60,13 @@ Last updated: 2026-05-12 (after L1 ships).
   until v1.1.
 - **`wiq check_ins record`** — mark attendance via CLI
   (`POST/PUT /api/v1/events/:id/check_ins`). Write surface; deferred.
-- **`wiq wrestlers list`** — endpoint works but `expand_registration_answers`
-  produces wide payloads. Wait for a real use case to scope the right
-  default expansion.
+- ~~**`wiq wrestlers list`**~~ SHIPPED narrow. Default per_page=20, no
+  --all flag, base payload kept tight. Filters translate to Ransack
+  (--first-name, --last-name, --weight-class, --academic-class, --age,
+  --roster, --profile-type) + legacy free-text --query. --expand opts
+  into rosters / registration_answers per row. Multi-roster
+  intersection deferred (API supports it; CLI surface didn't justify
+  the complexity for v1). `wiq wrestlers show <id>` paired.
 - **`wiq url parse <url>`** — extract team/roster/event IDs from WIQ web
   URLs. Initial-plan item; useful for agents pasted URLs by humans.
 - **`wiq paid_sessions create/update`**, **`wiq rosters create/update`**,
