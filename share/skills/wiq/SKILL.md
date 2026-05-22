@@ -221,6 +221,28 @@ type-specific jsonb payload.
   interchangeably in different endpoints — the CLI normalizes, but if
   you're constructing URLs yourself, expect the inconsistency.
 
+## Integer-backed enums (Ransack gotcha for future write paths)
+
+Some WIQ models back enums with integers (Rails default). Ransack 4.x
+does NOT translate enum strings to integers on those columns — sending
+`q[status_eq]=failed` against an integer column silently drops the
+predicate and returns every row, not zero rows.
+
+The CLI translates internally for the surfaces it exposes
+(`wiq charges list --status`, `wiq check_ins event --status`). If you
+construct ad-hoc `q[...]` filters via `curl` or a future surface, watch
+for this. Known integer-enum columns the CLI touches today:
+
+| Model | Field | Values |
+| --- | --- | --- |
+| Charge | status | successful (0), failed (1) |
+| CheckIn | status | unknown (0), present (1), absent (2), excused (3), unexcused (4), late (5), injured (6), other (7) |
+| WrestlerProfile | gender | male (0), female (1), other (2) |
+| PaidSession | usaw_override / aau_override | disabled (0), optional (1), require_id_and_expires (2), require_all (3) |
+
+String columns (Prospect.stage, WrestlerProfile.profile_type / academic_class)
+do NOT have this issue — Ransack matches the string directly.
+
 ## Payment debugging
 
 For "did Johnny pay X?" / "what's failing right now?" / "is this family's

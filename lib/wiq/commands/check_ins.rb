@@ -3,20 +3,37 @@
 module Wiq
   module Commands
     class CheckIns < Base
+      # Match CheckIn.statuses in app/models/check_in.rb (integer-backed
+      # Rails enum). Ransack 4.x does not translate enum strings on integer
+      # columns, so the CLI translates here. Without this, q[status_eq]
+      # silently drops and returns all check-ins regardless of status.
+      STATUS_TO_INT = {
+        "unknown" => 0,
+        "present" => 1,
+        "absent" => 2,
+        "excused" => 3,
+        "unexcused" => 4,
+        "late" => 5,
+        "injured" => 6,
+        "other" => 7
+      }.freeze
+      STATUSES = STATUS_TO_INT.keys.freeze
+
       desc "event EVENT_ID", "List check-ins for an event"
       long_desc <<~DESC
         Every check-in row for a single event. Each row carries the
-        wrestler profile, the event reference, the status string
-        (free-text — common values: checked_in, absent, late, excused),
+        wrestler profile, the event reference, the status (Rails enum:
+        unknown, present, absent, excused, unexcused, late, injured, other),
         and the registration_answers captured at check-in time.
 
         Discover event ids via `wiq events list --start ... --end ...`.
       DESC
-      method_option :status, type: :string, desc: "Filter by status (Ransack q[status_eq])"
+      method_option :status, type: :string, enum: STATUSES,
+                             desc: "Filter by check-in status"
       method_option :all, type: :boolean, default: false, desc: "Follow pagination until exhausted"
       def event(event_id)
         params = { "per_page" => 50 }
-        params["q[status_eq]"] = options[:status] if options[:status]
+        params["q[status_eq]"] = STATUS_TO_INT.fetch(options[:status]) if options[:status]
         records, total = fetch_index("/api/v1/events/#{event_id}/check_ins", params, key: "check_ins")
         render_index(
           records, total: total,
