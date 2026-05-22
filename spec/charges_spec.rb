@@ -7,8 +7,16 @@ RSpec.describe Wiq::Commands::Charges do
   end
 
   describe "option → Ransack mapping" do
-    it "translates --status to q[status_eq]" do
-      expect(build_params_for(status: "failed")).to include("q[status_eq]" => "failed")
+    # Charge.status is an integer-backed Rails enum. Ransack 4.1 does not
+    # translate enum strings to integers; sending q[status_eq]=failed silently
+    # drops the predicate and returns everything. The CLI translates "failed"
+    # → 1 (and "successful" → 0) before sending so the filter actually works.
+    it "translates --status=failed to q[status_eq]=1 (integer)" do
+      expect(build_params_for(status: "failed")).to include("q[status_eq]" => 1)
+    end
+
+    it "translates --status=successful to q[status_eq]=0 (integer)" do
+      expect(build_params_for(status: "successful")).to include("q[status_eq]" => 0)
     end
 
     it "translates --billing-profile to q[billing_profile_id_eq]" do

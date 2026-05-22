@@ -3,9 +3,14 @@
 module Wiq
   module Commands
     class Charges < Base
-      # Match Charge.statuses in app/models/charge.rb (the enum only has two
-      # values today; documented here so agents don't have to guess).
-      STATUSES = %w[successful failed].freeze
+      # Match Charge.statuses in app/models/charge.rb. Values are
+      # integer-backed via Rails enum (`enum status: { successful: 0, failed: 1 }`).
+      # Ransack 4.x does NOT auto-translate enum strings on integer columns,
+      # so the CLI translates here before sending q[status_eq]. Without this
+      # translation Ransack silently drops the predicate and returns every
+      # row — the kind of failure that's worse than a 422.
+      STATUS_TO_INT = { "successful" => 0, "failed" => 1 }.freeze
+      STATUSES = STATUS_TO_INT.keys.freeze
       DEFAULT_PER_PAGE = 50
 
       desc "list", "List charges (finance: admin coach only)"
@@ -77,7 +82,7 @@ module Wiq
       no_commands do
         def build_list_params
           params = { "per_page" => options[:per_page] || DEFAULT_PER_PAGE }
-          params["q[status_eq]"] = options[:status] if options[:status]
+          params["q[status_eq]"] = STATUS_TO_INT.fetch(options[:status]) if options[:status]
           params["q[billing_profile_id_eq]"] = options[:billing_profile] if options[:billing_profile]
           params["q[chargeable_type_eq]"] = options[:chargeable_type] if options[:chargeable_type]
           params["q[created_at_gteq]"] = options[:since] if options[:since]
