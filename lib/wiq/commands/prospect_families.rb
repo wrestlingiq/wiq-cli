@@ -13,6 +13,12 @@ module Wiq
             occurred_at) preloaded as has_one
           - The family's registration_answers, with question prompts
 
+        `--query` searches BOTH family contact (name, email, phone — with
+        digit-stripped phone matching) AND child first/last names via a
+        subquery on the prospects table. A "Johnny" search matches either
+        a parent named Johnny OR a child named Johnny; you'll see which
+        from the `child_first_name` field on the embedded prospects.
+
         Filters mirror `wiq prospects list`, plus:
           --question-id <id> + --answer-value <str>   Filter by a specific
                                                        registration answer

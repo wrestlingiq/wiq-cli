@@ -276,8 +276,37 @@ through a parent.
 
 ## ID discovery
 
-When you need a wrestler's id to feed into another command (e.g.
-`wiq check_ins wrestler <id>`):
+### Disambiguating "who is X?"
+
+WIQ tracks people in three states. When the user asks about a person by
+name (e.g., "show me Johnny"), decide which scope to search FIRST,
+based on context:
+
+| If recent context is about… | Search this |
+| --- | --- |
+| Leads / pipeline / trials / "potential new kid" | `wiq prospect_families list --query <name>` |
+| Active club members / attendance / rosters / subscriptions | `wiq wrestlers list --query <name>` |
+| Former members / graduates | `wiq wrestlers list --query <name> --profile-type alumnus` |
+| Truly ambiguous, no prior context | **Ask the user.** Don't fan out across both. |
+
+Don't default to wrestlers because it's listed first alphabetically —
+that wastes a call when the user is clearly asking about a lead.
+
+### How `--query` actually matches
+
+- **`wiq wrestlers list --query`** — name search (first/last) against
+  active WrestlerProfile rows on the team.
+- **`wiq prospect_families list --query`** — searches BOTH family
+  contact (name, email, phone — digits stripped for phone match) AND
+  child first/last names via a subquery. A "Johnny" search matches a
+  parent named Johnny OR a child named Johnny; check
+  `child_first_name` on the embedded prospects array to tell which.
+- **`wiq prospects list --query`** — same scope as families above, but
+  currently returns HTTP 500 due to a server-side ambiguous-column bug
+  (tracked in `docs/deferred.md`). Use `prospect_families list --query`
+  instead until the WIQ-app fix ships.
+
+### Wrestlers-specific filters
 
 ```bash
 wiq wrestlers list --query "Jane Smith"

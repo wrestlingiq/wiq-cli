@@ -15,9 +15,21 @@ module Wiq
         archived (terminal).
 
         Filters:
-          --query              Free-text search across family contact
-                               (name/email/phone). When set, ALL other
-                               filters are bypassed server-side.
+          --query              Free-text search across BOTH family contact
+                               (name/email/phone) AND child first/last
+                               name. Backed by the ProspectFamily.search
+                               scope which unions both via a subquery.
+                               When set, ALL other filters are bypassed
+                               server-side.
+
+                               KNOWN BUG: `wiq prospects list --query …`
+                               currently returns HTTP 500 due to an
+                               ambiguous-column ORDER BY on the
+                               prospect↔prospect_family join. Workaround:
+                               use `wiq prospect_families list --query …`
+                               instead (same search scope, same matches,
+                               returns the family with its prospects
+                               nested inline).
           --attention          needs_attention | handled
           --stage              One funnel stage
           --assigned-to-me     Only families assigned to the calling coach

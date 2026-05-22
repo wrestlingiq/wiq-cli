@@ -126,6 +126,18 @@ Last updated: 2026-05-12 (after L1 ships).
 
 ## Backend asks (push back to WIQ app team)
 
+- **`GET /api/v1/prospects?query=<str>` 500s on ambiguous ORDER BY.**
+  Found during the Phase 5 agent telemetry pass. The controller does
+  `Prospect.joins(:prospect_family).merge(ProspectFamily.search(query))
+  .order(created_at: :desc)` — both `prospects` and `prospect_families`
+  have `created_at`, so the join makes the order ambiguous. One-line
+  fix on the WIQ-app side: change to
+  `.order("prospects.created_at DESC")` (or
+  `.order(Prospect.arel_table[:created_at].desc)`). The CLI documents
+  the workaround (use `wiq prospect_families list --query` — same
+  matches, returns families with prospects embedded) until this ships.
+
+
 - ~~**`days_threshold` permit fix on `Api::V1::ReportsController`**~~ —
   SHIPPED. The CLI's `--days-threshold` flag now lands on the model
   unchanged; no further CLI work needed.
