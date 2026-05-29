@@ -36,8 +36,14 @@ module Wiq
                  "--visibility private if admin) to surface intake data as " \
                  "extra columns. Skip questions with a deleted_at — they're " \
                  "still in the index payload but won't render. roster_id=0 " \
-                 "means \"all rosters\". Each appended question becomes a column.",
-          example: "wiq reports run RosterReport --roster 42 --append-properties 17 23"
+                 "means \"all rosters\". Each appended question becomes a column. " \
+                 "The default row/CSV shape (web Download) carries the \"Added " \
+                 "to roster at\" column (roster_memberships.created_at — when the " \
+                 "wrestler landed on the roster, NOT their registration date), " \
+                 "populated only for a specific --roster <id> (id > 0), not " \
+                 "--roster 0. --v1 returns fuller per-wrestler objects but drops " \
+                 "that column.",
+          example: "wiq reports run RosterReport --roster 42"
         },
         "FullExportWrestlerReport" => {
           args: %w[],
@@ -341,6 +347,24 @@ module Wiq
         cap, default 5-minute timeout. Pass --no-wait to return the
         report row immediately after submission (status=queued or
         processing) and poll later with `wiq reports show <id> --wait`.
+
+        Result shape (vrow default / --v1):
+          The CLI requests the row/CSV shape (version "vrow") by default —
+          `result.rows.objects` with the first row being the headers, the
+          exact layout behind the "Download" buttons in the WIQ web UI.
+          Most reports emit only this shape and ignore the version.
+
+          For RosterReport, vrow is the ONLY shape carrying the "Added to
+          roster at" column (roster_memberships.created_at — when a
+          wrestler landed on that roster, distinct from their registration
+          date). That column is populated only for a specific roster: pass
+          --roster <id> with id > 0, NOT --roster 0 ("all wrestlers"),
+          since a wrestler can sit on multiple rosters.
+
+          Pass --v1 for the legacy structured-JSON shape. Only
+          RosterReport, UsawReport, and PaidSessionAccountingReport differ
+          under it (fuller per-wrestler objects); for those reports v1
+          drops the "Added to roster at" column.
       DESC
       method_option :start, type: :string, desc: "YYYY-MM-DD"
       method_option :end, type: :string, desc: "YYYY-MM-DD"
@@ -358,6 +382,11 @@ module Wiq
                                      desc: "args.days_threshold (ChurnRiskReport)"
       method_option :name, type: :string, desc: "Display name (default: CLI <type> <range>)"
       method_option :season, type: :numeric, desc: "Resolve to paid_session_id via overlap with calendar year"
+      method_option :v1, type: :boolean, default: false,
+                         desc: "Request the legacy v1 structured-JSON shape instead of the default " \
+                               "row/CSV (vrow). Only RosterReport/UsawReport/PaidSessionAccountingReport " \
+                               "differ; v1 returns fuller per-wrestler objects but drops RosterReport's " \
+                               "\"Added to roster at\" column."
       method_option :wait, type: :boolean, default: true
       method_option :timeout, type: :numeric, default: 300
       map "run" => :run_report
@@ -367,7 +396,7 @@ module Wiq
         body = {
           report: {
             type: type,
-            version: "v1",
+            version: report_version,
             name: options[:name] || default_name(type),
             start_at: options[:start],
             end_at: options[:end],
@@ -469,6 +498,18 @@ module Wiq
       end
 
       no_commands do
+        # The API recognizes two report versions: "vrow" (the row/CSV shape
+        # behind the web Download buttons) and "v1" (legacy structured JSON).
+        # Only RosterReport/UsawReport/PaidSessionAccountingReport branch on
+        # it; every other report emits rows regardless. vrow is the de facto
+        # standard and is the only shape carrying RosterReport's "Added to
+        # roster at" column, so the CLI defaults to it for a uniform surface.
+        # --v1 is an escape hatch to the fuller structured objects on those
+        # three reports.
+        def report_version
+          options[:v1] ? "v1" : "vrow"
+        end
+
         def build_args(type)
           if options[:season]
             resolver = Wiq::SeasonResolver.new(client)

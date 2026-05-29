@@ -246,6 +246,29 @@ file with the WIQ team.
 
 - `POST /api/v1/reports`
   - Body: `{ "report": { "type": "<ReportClass>", "version": "v1"|"vrow", "name": "...", "start_at": "YYYY-MM-DD", "end_at": "YYYY-MM-DD", "args": { ... } } }`
+  - **`version` — v1 vs vrow.** `:version` is in the controller permit
+    list (`reports_controller.rb#report_params`). Despite both being
+    accepted everywhere, version only changes output for three reports —
+    `RosterReport`, `UsawReport`, `PaidSessionAccountingReport` — which
+    branch in `generate_ver_result!` (`v1?` → structured JSON objects,
+    `vrow?` → row/CSV with a leading header row). All three implement
+    both; no report is v1-only. Every other report overrides
+    `generate_ver_result!` and emits rows regardless of version. vrow is
+    the de facto standard, so the CLI defaults to it (uniform row shape
+    across all reports) and exposes the legacy structured shape via
+    `wiq reports run … --v1`.
+  - **`RosterReport` "Added to roster at" lives only in vrow.** The vrow
+    path calls `get_wrestlers_and_roster(include_roster_memberships: true)`
+    (`report.rb`), which `.select`s
+    `roster_memberships.created_at as added_to_roster_at` and emits it as
+    the `"Added to roster at"` column. The v1 path renders wrestlers via
+    `_wrestler_profile.json.jbuilder`, which has no such field. The join
+    only happens for a specific roster (`roster_id > 0`); `roster_id: 0`
+    ("all wrestlers") takes the else branch and the value is nil — a
+    wrestler can be on multiple rosters, so the join date is per-roster.
+    The roster index/show jbuilder (`_roster.json.jbuilder`) exposes only
+    `stats.roster_memberships_count`, never per-membership timestamps, so
+    vrow RosterReport is the sole API path to this data.
   - Permitted `args` keys (`reports_controller.rb#report_params`):
     `paid_session_id, roster_id, fundraiser_id, online_store_id, event_id,
     include_archived_roster_tags, append_property_ids[]`.

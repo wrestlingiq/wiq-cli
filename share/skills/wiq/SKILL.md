@@ -172,6 +172,11 @@ Key reports an agent should know by heart:
   within N days (7, 14, 30, 60, 90). Requires `--days-threshold`.
 - **`RosterReport`** — Roster snapshot with optional custom columns via
   `--append-properties <q_ids>`. Discover ids via `wiq registrations questions`.
+  The default (row/CSV) shape carries the **"Added to roster at"** column
+  (`roster_memberships.created_at` — when a wrestler landed on that roster,
+  NOT their registration date). Requires a specific `--roster <id>` (id > 0);
+  it's blank for `--roster 0`. `--v1` returns fuller per-wrestler objects but
+  drops that column.
 - **`LastPracticeAttendedReport`** — "Who hasn't been to practice in a
   while?"
 - **`PaidSessionAccountingReport`** (admin_only) — Line-item charges for
@@ -193,6 +198,18 @@ wiq reports run <Type> --start <date> --end <date> [args]
 `wiq reports show <id> --wait`. Status values: `requested → queued →
 processing → ready` (terminal) | `failed` (terminal). `result` is the
 type-specific jsonb payload.
+
+**Result shape — vrow default (`--v1` escape hatch).** The CLI requests
+the row/CSV shape (`version: "vrow"`) by default: `result.rows.objects`
+with the first row being the header — identical to the web "Download"
+buttons, and a uniform shape across every report type. Most reports emit
+only this shape and ignore the version. Only `RosterReport`, `UsawReport`,
+and `PaidSessionAccountingReport` also support a legacy v1 shape
+(structured JSON objects) via `--v1`, which returns fuller per-wrestler
+data but drops RosterReport's **"Added to roster at"** column. If a user
+asks when a wrestler joined a roster (e.g. roster-join → first-practice
+latency), `wiq reports run RosterReport --roster <id>` is the answer — the
+join date is in the default output.
 
 ## Common gotchas
 
