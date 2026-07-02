@@ -26,7 +26,7 @@ module Wiq
       TYPES = {
         # ── Roster tab ───────────────────────────────────────────────
         "RosterReport" => {
-          args: %w[roster_id append_property_ids include_archived_roster_tags],
+          args: %w[roster_id location_id append_property_ids include_archived_roster_tags],
           dates: :optional,
           desc: "Roster snapshot — name, weight class, academic class, age",
           recommended: true,
@@ -41,8 +41,11 @@ module Wiq
                  "to roster at\" column (roster_memberships.created_at — when the " \
                  "wrestler landed on the roster, NOT their registration date), " \
                  "populated only for a specific --roster <id> (id > 0), not " \
-                 "--roster 0. --v1 returns fuller per-wrestler objects but drops " \
-                 "that column.",
+                 "--roster 0. With --location <id> instead, the report scopes to " \
+                 "wrestlers on any roster at that location (one row each) and " \
+                 "\"Added to roster at\" becomes their EARLIEST membership across " \
+                 "that location's rosters. --v1 returns fuller per-wrestler " \
+                 "objects but drops that column.",
           example: "wiq reports run RosterReport --roster 42"
         },
         "FullExportWrestlerReport" => {
@@ -67,52 +70,52 @@ module Wiq
 
         # ── USAW / AAU tab ───────────────────────────────────────────
         "UsawReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :optional,
           desc: "All USA Wrestling card info on file, one row per wrestler",
           recommended: true,
           notes: "UI hides this tab when USAW collection is off (team setting)."
         },
         "UsawExpiredReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :optional,
           desc: "Wrestlers missing or with expired USAW memberships",
           notes: "Output is also a bulk-purchase upload format for USAW's system."
         },
         "UsawExportReport" => {
-          args: %w[roster_id paid_session_id],
+          args: %w[roster_id location_id paid_session_id],
           dates: :optional,
           desc: "USAW bulk-purchase upload format",
           notes: "Only report that accepts paid_session_id=0 to mean " \
                  "\"all sessions\"."
         },
         "AauReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :optional,
           desc: "All AAU card info on file, one row per wrestler",
           recommended: true,
           notes: "UI hides this tab when AAU collection is off (team setting)."
         },
         "AauExpiredReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :optional,
           desc: "Wrestlers missing or with expired AAU memberships"
         },
         "AauExportReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :optional,
           desc: "AAU bulk-purchase upload format"
         },
 
         # ── Stats tab ────────────────────────────────────────────────
         "WinLossReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :required,
           desc: "Wins and losses per wrestler",
           recommended: true
         },
         "RosterStatsReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :required,
           desc: "Wrestling stats per wrestler (takedowns, nearfall, etc.)",
           recommended: true
@@ -133,8 +136,10 @@ module Wiq
           recommended: true,
           notes: "One row per wrestler over the date range — totals across all " \
                  "their check-ins in the window. If you want one row per " \
-                 "check-in event use CheckInFeedReport. The UI doesn't expose " \
-                 "a roster picker; counts span the whole team.",
+                 "check-in event use CheckInFeedReport. Always team-wide: the " \
+                 "model ignores roster_id AND location_id args. For a " \
+                 "location-scoped attendance report use CheckInReport " \
+                 "--location <id> instead.",
           example: "wiq reports run CheckInSummaryReport --start 2026-05-01 --end 2026-05-31"
         },
         "CheckInFeedReport" => {
@@ -144,11 +149,12 @@ module Wiq
           recommended: true,
           notes: "Useful for \"who came to the club today and what registrations " \
                  "did they have at check-in time.\" Larger payload than the " \
-                 "summary.",
+                 "summary. Always team-wide: the model ignores roster_id AND " \
+                 "location_id args.",
           example: "wiq reports run CheckInFeedReport --start 2026-05-01 --end 2026-05-31"
         },
         "PracticeAttendanceReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :required,
           desc: "Practice-event attendance roll-up across a date range",
           recommended: false,
@@ -159,7 +165,7 @@ module Wiq
                  "use CheckInSummaryReport or CheckInFeedReport instead."
         },
         "LastPracticeAttendedReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :optional,
           desc: "Days since last practice attended, per wrestler",
           recommended: true,
@@ -167,7 +173,7 @@ module Wiq
                  "practice in a while — particularly for seasonal clubs."
         },
         "ChurnRiskReport" => {
-          args: %w[roster_id days_threshold],
+          args: %w[roster_id location_id days_threshold],
           dates: :optional,
           desc: "Active recurring subscribers who haven't checked in within a window",
           recommended: true,
@@ -178,7 +184,7 @@ module Wiq
           example: "wiq reports run ChurnRiskReport --roster 0 --days-threshold 30"
         },
         "CheckInReport" => {
-          args: %w[roster_id],
+          args: %w[roster_id location_id],
           dates: :required,
           desc: "Extended attendance — one row per check-in INCLUDING Q&A responses",
           notes: "UI labels this \"Attendance Extended (with questions).\" Same " \
@@ -333,6 +339,14 @@ module Wiq
         Common args (only those documented in TYPES are honored
         server-side):
           --roster <id>            roster_id (0 = all rosters)
+          --location <id>          location_id — scope the wrestler set to
+                                   one location (wrestlers on ANY roster at
+                                   that location, deduped to one row each).
+                                   Precedence: a specific --roster <id> (> 0)
+                                   WINS over --location; pass --location
+                                   alone (or with --roster 0) to get
+                                   location scoping. Discover ids via
+                                   `wiq locations list`.
           --paid-session <id>      paid_session_id (0 = all, UsawExport only)
           --event <id>             event_id (EventStatsReport)
           --fundraiser <id>        fundraiser_id (Fundraiser* reports)
@@ -369,6 +383,9 @@ module Wiq
       method_option :start, type: :string, desc: "YYYY-MM-DD"
       method_option :end, type: :string, desc: "YYYY-MM-DD"
       method_option :roster, type: :numeric, desc: "args.roster_id (0 = all rosters)"
+      method_option :location, type: :numeric,
+                               desc: "args.location_id — scope wrestlers to one location " \
+                                     "(a specific --roster <id> > 0 takes precedence)"
       method_option :paid_session, type: :numeric, desc: "args.paid_session_id"
       method_option :event, type: :numeric, desc: "args.event_id"
       method_option :fundraiser, type: :numeric, desc: "args.fundraiser_id"
@@ -529,6 +546,7 @@ module Wiq
 
           args = {}
           args["roster_id"] = options[:roster] if options[:roster] || options[:roster] == 0
+          args["location_id"] = options[:location] if options[:location]
           args["paid_session_id"] = options[:paid_session] if options[:paid_session] || options[:paid_session] == 0
           args["event_id"] = options[:event] if options[:event]
           args["fundraiser_id"] = options[:fundraiser] if options[:fundraiser]

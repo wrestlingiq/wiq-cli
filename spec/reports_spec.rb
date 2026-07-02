@@ -24,4 +24,28 @@ RSpec.describe Wiq::Commands::Reports do
       expect(version_for(v1: false)).to eq("vrow")
     end
   end
+
+  describe "#build_args" do
+    def args_for(opts = {})
+      described_class.new([], opts, {}).send(:build_args, "RosterReport")
+    end
+
+    it "maps --location to args.location_id" do
+      expect(args_for(location: 7)).to include("location_id" => 7)
+    end
+
+    it "omits location_id when --location is not passed" do
+      expect(args_for(roster: 42)).not_to have_key("location_id")
+    end
+
+    it "passes roster_id and location_id through together (server: roster > 0 wins)" do
+      args = args_for(roster: 42, location: 7)
+      expect(args).to include("roster_id" => 42, "location_id" => 7)
+    end
+
+    it "keeps roster_id=0 alongside location_id (0 defers to location scoping server-side)" do
+      args = args_for(roster: 0, location: 7)
+      expect(args).to include("roster_id" => 0, "location_id" => 7)
+    end
+  end
 end

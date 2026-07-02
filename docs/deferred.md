@@ -144,10 +144,14 @@ Last updated: 2026-05-12 (after L1 ships).
 - **Echo `request_id`** in the response body or `X-Request-ID` header,
   for support correlation. Today the CLI can't give a customer a request
   ID to ship to support.
-- **Real location/site filter on events.** `Event.location` is free-text
-  and not in `ransackable_attributes`. WIQ team has flagged a structured
-  location concept as roadmap. Until then the CLI deliberately exposes
-  no `--site` flag.
+- ~~**Real location/site filter on events.**~~ — SHIPPED (June 2026,
+  wre-506). The backend grew a structured Location model. The CLI now
+  exposes `wiq locations list|show` plus `--location` flags on
+  `events list` (repeatable → `location_ids[]`), `rosters list`
+  (`q[location_id_eq]`), `paid_sessions list`, `wrestlers list`,
+  `metrics show`, and `reports run` (args.location_id, honored by 13
+  report types). The legacy free-text `Event.location` remains for old
+  rows; serialized `location` is the display form.
 - **Subdomain discovery flow for `wiq auth login`.** PAT settings URL
   lives at `<team-subdomain>.wrestlingiq.com/settings/personal_access_tokens`.
   If a customer doesn't know their subdomain, the CLI can't deep-link

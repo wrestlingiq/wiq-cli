@@ -13,7 +13,7 @@ RSpec.describe Wiq::Introspection do
 
   it "lists every command group alphabetically" do
     expect(tree["groups"].map { |g| g["name"] }).to eq(
-      %w[auth billing_profiles charges check_ins doctor events metrics paid_sessions prospect_families prospects registrations reports rosters setup workflows wrestlers]
+      %w[auth billing_profiles charges check_ins doctor events locations metrics paid_sessions prospect_families prospects registrations reports rosters setup workflows wrestlers]
     )
   end
 
@@ -49,8 +49,8 @@ RSpec.describe Wiq::Introspection do
       names = tree["top_level_commands"].map { |c| c["name"] }
       # All 11 subcommand groups should NOT appear as top-level commands
       %w[auth doctor check_ins reports paid_sessions metrics events rosters
-         prospects prospect_families registrations workflows setup wrestlers
-         charges billing_profiles].each do |group_name|
+         locations prospects prospect_families registrations workflows setup
+         wrestlers charges billing_profiles].each do |group_name|
         expect(names).not_to include(group_name),
                                "top_level_commands leaked subcommand placeholder #{group_name}"
       end

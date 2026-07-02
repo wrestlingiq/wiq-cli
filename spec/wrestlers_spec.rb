@@ -58,6 +58,11 @@ RSpec.describe Wiq::Commands::Wrestlers do
       expect(params).to include("q[rosters_id_eq]" => 42)
     end
 
+    it "translates --location to the dedicated location_id param (not Ransack)" do
+      params = build_params_for(location: 7)
+      expect(params).to include("location_id" => 7)
+    end
+
     it "uses the legacy ?query= for free-text name search (alongside Ransack)" do
       params = build_params_for(query: "Jane Smith")
       expect(params).to include("query" => "Jane Smith")

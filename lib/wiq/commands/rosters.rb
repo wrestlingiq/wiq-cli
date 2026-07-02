@@ -17,12 +17,19 @@ module Wiq
                                 exact name. Some teams tag rosters with
                                 conventions like "2025-26".
 
+        --location <id> filters server-side (Ransack q[location_id_eq]) to
+        rosters stamped with that structured location. Discover ids via
+        `wiq locations list`. Rosters with no location are excluded when
+        the filter is on. Each roster row embeds its location object (or
+        null) so you can also group client-side without the filter.
+
         Each roster row embeds roster_syncers and taggings, which is what
         --season uses to filter without needing extra calls.
       DESC
       method_option :season, type: :numeric,
                              desc: "Filter to rosters whose syncers point at paid sessions overlapping this year"
       method_option :season_tag, type: :string, desc: "Filter to rosters carrying this tag"
+      method_option :location, type: :numeric, desc: "Filter to rosters at one location id"
       method_option :archived, type: :boolean, desc: "Show only archived (true) or active (false)"
       method_option :all, type: :boolean, default: false
       def list
@@ -30,6 +37,7 @@ module Wiq
         unless options[:archived].nil?
           params["q[archived_eq]"] = options[:archived]
         end
+        params["q[location_id_eq]"] = options[:location] if options[:location]
 
         records, total = fetch_index("/api/v1/rosters", params, key: "rosters")
 

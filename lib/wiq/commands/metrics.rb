@@ -62,6 +62,13 @@ module Wiq
         Intervals: hourly, daily, weekly, monthly. Invalid values are
         silently coerced to `daily` server-side.
 
+        --location <id> scopes every metric to one structured location
+        (discover ids via `wiq locations list`). CAUTION: the server
+        validates the id against the team's own locations and silently
+        falls back to ALL locations when it doesn't match — a typo'd or
+        foreign id returns team-wide numbers, not an error. The CLI echoes
+        the requested location in `meta` so you can sanity-check.
+
         Currency metrics return integer cents (divide by 100 for dollars).
         Non-currency metrics return raw counts.
       DESC
@@ -70,6 +77,8 @@ module Wiq
                                enum: VALID_INTERVALS, desc: "interval_group"
       method_option :start_date, type: :string, desc: "Required if --range=custom"
       method_option :end_date, type: :string, desc: "Required if --range=custom"
+      method_option :location, type: :numeric,
+                               desc: "Scope to one location id (unknown ids silently mean ALL locations)"
       method_option :no_comparison, type: :boolean, default: false,
                                     desc: "Drop comparison_series/comparison_total from output"
       def show(name)
@@ -91,6 +100,7 @@ module Wiq
           params["start_date"] = options[:start_date]
           params["end_date"] = options[:end_date]
         end
+        params["location_id"] = options[:location] if options[:location]
 
         payload = client.get("/api/v1/metrics/#{name}", params)
         metrics = payload["metrics"] || {}
@@ -106,9 +116,13 @@ module Wiq
           data["comparison_total"] = metrics["comparison_total"]
         end
 
+        meta = { "currency_unit" => CURRENCY_METRICS.include?(name) ? "cents" : "count" }
+        meta["location_id"] = options[:location] if options[:location]
+
         render(data,
-               summary: "metric=#{name} range=#{options[:range]} interval=#{options[:interval]}",
-               meta: { "currency_unit" => CURRENCY_METRICS.include?(name) ? "cents" : "count" },
+               summary: "metric=#{name} range=#{options[:range]} interval=#{options[:interval]}" \
+                        "#{options[:location] ? " location=#{options[:location]}" : ""}",
+               meta: meta,
                breadcrumbs: [
                  { "cmd" => "wiq metrics list", "description" => "See all supported metrics" }
                ])

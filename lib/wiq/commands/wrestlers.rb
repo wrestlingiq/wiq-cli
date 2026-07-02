@@ -20,6 +20,10 @@ module Wiq
           --first-name         q[first_name_cont]
           --last-name          q[last_name_cont]
           --roster <id>        q[rosters_id_eq] — filter to one roster
+          --location <id>      location_id (dedicated param, not Ransack) —
+                               wrestlers on ANY roster at that location.
+                               Composes with the other filters. Discover
+                               ids via `wiq locations list`.
           --weight-class       q[weight_class_numeric_eq] — exact numeric
           --academic-class     q[academic_class_eq] (senior, junior, …)
           --age                q[age_eq]
@@ -43,6 +47,8 @@ module Wiq
       method_option :first_name, type: :string, desc: "First name (contains)"
       method_option :last_name, type: :string, desc: "Last name (contains)"
       method_option :roster, type: :numeric, desc: "Filter to a single roster id"
+      method_option :location, type: :numeric,
+                               desc: "Filter to wrestlers on any roster at this location id"
       method_option :weight_class, type: :string,
                                    desc: "Weight class (exact numeric, e.g. 132)"
       method_option :academic_class, type: :string,
@@ -107,6 +113,7 @@ module Wiq
           params["q[first_name_cont]"] = options[:first_name] if options[:first_name]
           params["q[last_name_cont]"] = options[:last_name] if options[:last_name]
           params["q[rosters_id_eq]"] = options[:roster] if options[:roster]
+          params["location_id"] = options[:location] if options[:location]
           params["q[weight_class_numeric_eq]"] = options[:weight_class] if options[:weight_class]
           params["q[academic_class_eq]"] = options[:academic_class] if options[:academic_class]
           params["q[age_eq]"] = options[:age] if options[:age]
@@ -130,6 +137,7 @@ module Wiq
           bits = []
           bits << "matching #{options[:query].inspect}" if options[:query]
           bits << "in roster #{options[:roster]}" if options[:roster]
+          bits << "at location #{options[:location]}" if options[:location]
           bits << "weight class #{options[:weight_class]}" if options[:weight_class]
           bits << "profile_type=#{options[:profile_type]}" if profile_type_filter? && options[:profile_type] != "teammate"
           bits.empty? ? "" : " (#{bits.join(", ")})"

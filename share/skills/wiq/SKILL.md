@@ -1,6 +1,6 @@
 ---
 name: wiq
-description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, reports, USAW/AAU memberships, fundraising, or online store orders. The `wiq` CLI provides read-only access to /api/v1 via personal access tokens. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", or anything that maps to a wrestling club's admin workflows.
+description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, reports, USAW/AAU memberships, fundraising, online store orders, or per-location/site breakdowns for multi-gym clubs. The `wiq` CLI provides read-only access to /api/v1 via personal access tokens. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", "how is the Eastside gym doing?", or anything that maps to a wrestling club's admin workflows.
 ---
 
 # WrestlingIQ CLI Skill
@@ -223,9 +223,14 @@ join date is in the default output.
   resolves to paid_session ids whose date range overlaps the calendar
   year, then filters client-side. There's no first-class Season entity
   in WIQ.
-- **`Event.location` is free-text and not filterable.** No `--site` or
-  `--location` flag exists yet. A structured location concept is on the
-  WIQ roadmap.
+- **Legacy free-text `Event.location` vs structured locations.** Old
+  events carry a free-text `location` string; the serialized `location`
+  field is the display form (structured Location name/address when
+  `location_id` is set, else the legacy text). `--location` filters only
+  match the structured `location_id` — events, rosters, and paid sessions
+  with NO location set are excluded from filtered listings, so an empty
+  filtered result doesn't mean "nothing happened", it may mean "nothing
+  is stamped with that location yet."
 - **Index responses are wrapped.** Every `/api/v1` index returns
   `{"<resource>": [...]}` — the CLI unwraps internally, but if you ever
   hit the API directly remember to unwrap.
@@ -338,13 +343,58 @@ For exhaustive exports go through `wiq reports run RosterReport`
 `profile_type=teammate` (matching the WIQ web UI default); pass
 `--profile-type alumnus|guest|all` to widen.
 
+## Locations (multi-site clubs)
+
+WIQ has a structured Location model (name + street address, per team).
+Multi-gym clubs stamp rosters, events, and paid sessions with a
+location; single-site clubs usually have none, and every `--location`
+flag is simply irrelevant for them.
+
+Discover ids first — this is the anchor for everything below:
+
+```bash
+wiq locations list                     # id, name, address, archived
+wiq locations list --include-archived
+```
+
+Then scope any of these surfaces:
+
+| Command | Flag | Semantics |
+| --- | --- | --- |
+| `wiq rosters list` | `--location <id>` | Rosters stamped with that location (`q[location_id_eq]`) |
+| `wiq events list` | `--location <id> [<id>...]` | Events at those locations (repeatable; unset-location events excluded) |
+| `wiq paid_sessions list` | `--location <id>` | Sessions stamped with that location |
+| `wiq wrestlers list` | `--location <id>` | Wrestlers on ANY roster at that location; composes with other filters |
+| `wiq metrics show <name>` | `--location <id>` | Per-location finance metrics (the payment-dashboard filter) |
+| `wiq reports run <Type>` | `--location <id>` | Scopes the wrestler set for the 13 location-aware report types |
+
+Three gotchas an agent must know:
+
+1. **Reports precedence:** a specific `--roster <id>` (> 0) WINS over
+   `--location` in report args. Pass `--location` alone (or with
+   `--roster 0`) to get location scoping. A wrestler on multiple rosters
+   at the location collapses to one row; RosterReport's "Added to roster
+   at" becomes their EARLIEST membership across that location's rosters.
+   `CheckInSummaryReport` / `CheckInFeedReport` ignore both args
+   entirely (always team-wide) — use `CheckInReport --location <id>` for
+   location-scoped attendance.
+2. **Metrics fail silent, not loud:** an unknown or foreign `--location`
+   id on `wiq metrics show` silently falls back to ALL locations —
+   team-wide numbers, no error. Verify the id against
+   `wiq locations list` before quoting per-site revenue to the user.
+3. **Nothing is auto-stamped retroactively.** Filters only match records
+   whose `location_id` is set. Empty filtered results on a club that
+   just adopted locations usually mean unstamped data, not zero
+   activity. Rosters/events/paid_sessions embed their `location` object
+   (or null) in list payloads, so you can check coverage cheaply.
+
 ## What's NOT available (yet)
 
 The CLI is read-only by design except for report submission. You
 cannot via this CLI:
 
 - Create/edit prospects, families, notes, check-ins, events, paid
-  sessions, rosters, or any other resource
+  sessions, rosters, locations, or any other resource
 - Mint, list, or revoke PATs (use the web UI at
   `<host>/settings/personal_access_tokens`)
 - Mark attendance, advance prospect stages, log contact notes

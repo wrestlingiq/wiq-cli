@@ -468,13 +468,16 @@ Other registration surface:
 - `expand=event_invites,event_bookings,private_lessons` — comma-separated
   CSV; pulls in nested data on the events index/show.
 - `Event.ransackable_attributes` allows
-  `id, name, start_at, end_at, event_type, paid_session_id`. **`location`
-  is not ransackable today.** A real location filter is on the WIQ
-  backend roadmap (it will replace the free-text `location` column with a
-  structured concept); until that ships the CLI doesn't expose a
-  location/site flag. Users who need it can fetch the date range, write
-  the results to a file, and post-process — that's not the CLI's problem
-  to solve in v1.
+  `id, name, start_at, end_at, event_type, paid_session_id`. The
+  free-text `location` column is still not ransackable, but the
+  structured location filter shipped (June 2026): pass `location_ids[]`
+  (repeatable, dedicated param handled in `apply_event_filters`, not
+  Ransack) to filter on the event's `location_id`. Events with no
+  `location_id` are excluded from a filtered listing. The serialized
+  `location` field is now `Event#display_location` — the structured
+  Location's name when set, else the legacy free text — and `location_id`
+  is serialized alongside it. The CLI exposes this as
+  `wiq events list --location <id> [<id>...]`.
 - Soft deletes: events use `acts_as_paranoid`; the index calls
   `.without_deleted`. No "include deleted" param exposed.
 - `POST /api/v1/events` — recurring practice creation:
@@ -642,9 +645,12 @@ PaidSession-overlap convention proves load-bearing for many customers.
    demand. Until then, jbuilders are the source of truth.
 2. `request_id` echoed in response body and/or `X-Request-ID` header for
    support correlation.
-3. Real location/site filter on `GET /api/v1/events` (when the backend
-   gets a structured location concept). Until then the CLI doesn't expose
-   a flag.
+3. ~~Real location/site filter on `GET /api/v1/events`~~ — SHIPPED
+   (June 2026, wre-506). Structured Location model + `location_ids[]` on
+   events, `location_id` on paid_sessions/wrestlers/metrics/reports,
+   `q[location_id_eq]` on rosters, and a `GET /api/v1/locations`
+   resource. All exposed in the CLI via `wiq locations` and `--location`
+   flags.
 4. Subdomain discovery for `wiq auth login`. The PAT settings URL lives at
    `<team-subdomain>.wrestlingiq.com/settings/personal_access_tokens`; if
    the customer doesn't know their subdomain, the CLI can't deep-link

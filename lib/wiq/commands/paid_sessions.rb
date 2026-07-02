@@ -20,6 +20,10 @@ module Wiq
           recurring_registerable, not_recurring, not_recurring_with_archived,
           not_archived, dropin, trial, trial_or_dropin
 
+        --location <id> filters server-side to sessions stamped with that
+        structured location (discover ids via `wiq locations list`).
+        Sessions with no location are excluded when the filter is on.
+
         --season filters CLI-side to sessions whose [start_at, end_at] window
         overlaps the given calendar year. Pair with --all to get an exhaustive
         list.
@@ -30,11 +34,13 @@ module Wiq
         you usually don't need a follow-up call.
       DESC
       method_option :type, type: :string, enum: PRESET_TYPES, desc: "Preset scope filter"
+      method_option :location, type: :numeric, desc: "Filter to sessions at one location id"
       method_option :season, type: :numeric, desc: "Filter to sessions overlapping calendar year"
       method_option :all, type: :boolean, default: false
       def list
         params = { "per_page" => 50 }
         params[:type] = options[:type] if options[:type]
+        params["location_id"] = options[:location] if options[:location]
 
         records, total = fetch_index("/api/v1/paid_sessions", params, key: "paid_sessions")
 

@@ -65,6 +65,9 @@ module Wiq
     desc "rosters SUBCOMMAND", "Rosters (list, show)"
     subcommand "rosters", Wiq::Commands::Rosters
 
+    desc "locations SUBCOMMAND", "Team locations / sites — ID discovery for --location flags (list, show)"
+    subcommand "locations", Wiq::Commands::Locations
+
     desc "prospects SUBCOMMAND", "Prospect pipeline — individual kids (list, show, summary)"
     subcommand "prospects", Wiq::Commands::Prospects
 

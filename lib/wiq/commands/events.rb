@@ -25,18 +25,25 @@ module Wiq
           --event-type     One of `wiq events types` (practice, dual_meet, ...)
           --roster         One or more roster ids (the API joins through
                            roster_events)
+          --location       One or more location ids (structured Location
+                           records; discover via `wiq locations list`)
           --expand         CSV of event_invites,event_bookings,private_lessons.
                            Drops nested data into each event row.
 
-        There is no server-side location/site filter today — `Event.location`
-        is free-text and not in `ransackable_attributes`. A location-aware
-        backend is on the WIQ roadmap; until then post-process client-side.
+        Location caveat: --location matches the event's own structured
+        location_id. Events with NO location set are excluded from a
+        filtered listing — they only appear when you don't filter. The
+        legacy free-text `location` field still exists on old events; the
+        serialized `location` value is the display form (structured record
+        when set, else the free text).
 
         Use --all to walk every page; default is page 1, per_page=100.
       DESC
       method_option :start, type: :string, required: true, desc: "YYYY-MM-DD (team timezone)"
       method_option :end, type: :string, required: true, desc: "YYYY-MM-DD (team timezone)"
       method_option :roster, type: :array, desc: "One or more roster ids"
+      method_option :location, type: :array,
+                               desc: "One or more location ids (events with no location are excluded)"
       method_option :event_type, type: :string, enum: %w[practice dual_meet tournament scramble private_lesson other],
                                  desc: "Filter to one event_type (see `wiq events types`)"
       method_option :expand, type: :string,
@@ -52,6 +59,9 @@ module Wiq
         params["expand"] = options[:expand] if options[:expand]
         if options[:roster]
           options[:roster].each { |rid| (params["roster_ids[]"] ||= []) << rid }
+        end
+        if options[:location]
+          options[:location].each { |lid| (params["location_ids[]"] ||= []) << lid }
         end
 
         records, total = fetch_index("/api/v1/events", params, key: "events")
