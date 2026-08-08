@@ -35,8 +35,14 @@ module Wiq
         client-side.
 
         --expand opts into a wider payload:
-          rosters                Adds full roster details per wrestler
-          registration_answers   Adds intake-form answers per wrestler
+          rosters                   Adds full roster details per wrestler
+          registration_answers      Adds intake-form answers per wrestler
+          notification_preferences  Adds wiq_app_installed + a
+                                    notification_preferences object
+                                    (email, sms, push, push_user_pref)
+                                    per wrestler. Coach PATs only — the
+                                    server silently omits it for
+                                    parent/wrestler tokens.
 
         Base payload is already wider than most index endpoints (parents,
         coach_guardians, profile_photos, basic roster refs all render by
@@ -58,7 +64,7 @@ module Wiq
                                    desc: "Default 'teammate' matches the WIQ web UI default; " \
                                          "'all' removes the filter entirely"
       method_option :expand, type: :string,
-                             desc: "CSV: rosters, registration_answers"
+                             desc: "CSV: rosters, registration_answers, notification_preferences"
       method_option :per_page, type: :numeric, default: DEFAULT_PER_PAGE,
                                desc: "Page size (default 20; narrow surface)"
       def list
@@ -84,15 +90,21 @@ module Wiq
         rosters refs).
 
         Pass --expand for additional sections:
-          rosters                Full roster details with tags
-          registration_answers   Intake-form answers
+          rosters                   Full roster details with tags
+          registration_answers      Intake-form answers
+          notification_preferences  wiq_app_installed + notification_preferences
+                                    (email, sms, push, push_user_pref) —
+                                    "can this family be reached, and how?"
+                                    Coach PATs only; silently omitted for
+                                    parent/wrestler tokens.
       DESC
       method_option :expand, type: :string,
-                             desc: "CSV: rosters, registration_answers"
+                             desc: "CSV: rosters, registration_answers, notification_preferences"
       def show(id)
         params = {}
         params["expand_rosters"] = true if expand_includes?("rosters")
         params["expand_registration_answers"] = true if expand_includes?("registration_answers")
+        params["expand_notification_preferences"] = true if expand_includes?("notification_preferences")
         wrestler = client.get("/api/v1/wrestlers/#{id}", params)
         render(wrestler,
                summary: "Wrestler #{wrestler["id"]} — #{wrestler["full_name"] || wrestler["display_name"]}",
@@ -120,6 +132,7 @@ module Wiq
           params["q[profile_type_eq]"] = options[:profile_type] if profile_type_filter?
           params["expand_rosters"] = true if expand_includes?("rosters")
           params["expand_registration_answers"] = true if expand_includes?("registration_answers")
+          params["expand_notification_preferences"] = true if expand_includes?("notification_preferences")
           params
         end
 

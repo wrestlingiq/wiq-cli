@@ -343,6 +343,25 @@ For exhaustive exports go through `wiq reports run RosterReport`
 `profile_type=teammate` (matching the WIQ web UI default); pass
 `--profile-type alumnus|guest|all` to widen.
 
+For "can this family be reached, and how?" questions, add
+`--expand notification_preferences` to `wrestlers list|show` or
+`parents list|show`. Each row gains `wiq_app_installed` plus a
+`notification_preferences` object (`email`, `sms`, `push`,
+`push_user_pref`; `null` means no explicit preference recorded). Coach
+PATs only — with a parent/wrestler token the server returns 200 with
+the fields silently absent, so a missing field means "check the
+token's profile type", not "API bug".
+
+### Parents
+
+`wiq parents list [--query <name>] [--first-name X] [--last-name Y]`
+and `wiq parents show <id>` — slim payload (id, user_id, names) over
+the team's teammate parents. There are no wrestler refs on a parent
+row; to walk a family, start from the wrestler side
+(`wiq wrestlers show <id>` embeds parent refs). Main uses: parent-first
+ID discovery for `wiq billing_profiles show <id> --profile-type
+ParentProfile`, and the notification-reachability expand above.
+
 ## Locations (multi-site clubs)
 
 WIQ has a structured Location model (name + street address, per team).

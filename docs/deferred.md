@@ -68,9 +68,16 @@ Last updated: 2026-05-12 (after L1 ships).
   --all flag, base payload kept tight. Filters translate to Ransack
   (--first-name, --last-name, --weight-class, --academic-class, --age,
   --roster, --profile-type) + legacy free-text --query. --expand opts
-  into rosters / registration_answers per row. Multi-roster
+  into rosters / registration_answers / notification_preferences
+  (coach-only, Aug 2026 — see wiq_api_notes.md) per row. Multi-roster
   intersection deferred (API supports it; CLI surface didn't justify
   the complexity for v1). `wiq wrestlers show <id>` paired.
+- ~~**`wiq parents list/show`**~~ SHIPPED narrow (Aug 2026, alongside
+  the `expand_notification_preferences` param from wrestling PR #2460).
+  Filters: --query (legacy name search), --first-name / --last-name
+  (Ransack). --expand notification_preferences (coach-only). Slim
+  payload by design (id, user_id, type, names); no wrestler refs —
+  family linkage stays on the wrestlers side.
 - **`wiq url parse <url>`** — extract team/roster/event IDs from WIQ web
   URLs. Initial-plan item; useful for agents pasted URLs by humans.
 - **`wiq paid_sessions create/update`**, **`wiq rosters create/update`**,

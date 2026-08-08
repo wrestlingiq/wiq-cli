@@ -390,6 +390,60 @@ them. PATs minted by parents/wrestlers will 403 here.
   shape (`category`, `subcategory`, `detail_category`, `total_net_amount`)
   — special-case it in the formatter.
 
+## Wrestlers + parents: `expand_notification_preferences`
+
+Shipped Aug 2026 (wrestling PR #2460). All four endpoints accept
+`expand_notification_preferences=true`:
+
+- `GET /api/v1/wrestlers` / `GET /api/v1/wrestlers/:id`
+- `GET /api/v1/parents` / `GET /api/v1/parents/:id`
+
+When set, each profile gains two fields, mirroring the "Notified via"
+section on the web profile pages:
+
+```json
+{
+  "wiq_app_installed": true,
+  "notification_preferences": {
+    "email": true, "sms": false, "push": true, "push_user_pref": true
+  }
+}
+```
+
+Things to know:
+
+- **Coach-gated, silently.** `expand_notification_preferences?` in
+  `base_controller.rb` requires `current_profile.coach?`. A parent- or
+  wrestler-bound PAT gets a normal 200 with the fields simply absent —
+  no error. Don't diagnose missing fields as a bug; check the PAT's
+  profile type first (`wiq auth status`).
+- **Nullable prefs.** `notification_preference` is a `has_one` that may
+  not exist; each key can be `null` (rendered via `np&.email` etc.).
+  Treat `null` as "no explicit preference recorded", not "off".
+- The controller eager-loads `:notification_preference` only when the
+  flag is set, so the index cost is opt-in.
+
+CLI exposure: `wiq wrestlers list|show --expand notification_preferences`
+(composes with `rosters`, `registration_answers` in the same CSV) and
+`wiq parents list|show --expand notification_preferences`.
+
+While we're here, the parents endpoints themselves
+(`app/controllers/api/v1/parents_controller.rb`):
+
+- Index scope is `team.parent_profiles.teammates` ordered by first
+  name — guest parents (camp signups) are excluded. Policy scope:
+  coaches see the whole team (roster-restricted coaches see only their
+  allowed parents), wrestlers see their own guardians, parents see
+  nobody.
+- Filters: legacy `?query=` name search, plus Ransack limited to
+  `id, first_name, last_name` (`ParentProfile.ransackable_attributes`).
+- The jbuilder payload is slim: `id, user_id, type, first_name,
+  last_name, full_name` (+ the expand fields above). No wrestler refs —
+  walk the family from the wrestler side (`wiq wrestlers show <id>`
+  embeds parent refs).
+- `show` uses `ParentProfile.with_deleted` — soft-deleted parents still
+  resolve by id.
+
 ## Check-ins (attendance)
 
 Two index endpoints + create/update on the event-scoped path.

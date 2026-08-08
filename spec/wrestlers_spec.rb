@@ -74,6 +74,7 @@ RSpec.describe Wiq::Commands::Wrestlers do
       params = build_params_for
       expect(params).not_to have_key("expand_rosters")
       expect(params).not_to have_key("expand_registration_answers")
+      expect(params).not_to have_key("expand_notification_preferences")
     end
 
     it "sets expand_rosters=true when --expand includes rosters" do
@@ -90,6 +91,11 @@ RSpec.describe Wiq::Commands::Wrestlers do
     it "tolerates whitespace around CSV entries" do
       params = build_params_for(expand: "rosters, registration_answers")
       expect(params["expand_registration_answers"]).to be true
+    end
+
+    it "sets expand_notification_preferences=true when --expand includes notification_preferences" do
+      params = build_params_for(expand: "notification_preferences")
+      expect(params["expand_notification_preferences"]).to be true
     end
   end
 end
