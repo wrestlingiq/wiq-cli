@@ -13,7 +13,7 @@ RSpec.describe Wiq::Introspection do
 
   it "lists every command group alphabetically" do
     expect(tree["groups"].map { |g| g["name"] }).to eq(
-      %w[auth billing_profiles charges check_ins doctor events locations metrics paid_sessions parents prospect_families prospects registrations reports rosters setup workflows wrestlers]
+      %w[auth billing_profiles charges check_ins doctor events locations metrics paid_sessions parents payouts prospect_families prospects registrations reports rosters setup workflows wrestlers]
     )
   end
 

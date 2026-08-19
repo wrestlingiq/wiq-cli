@@ -91,5 +91,8 @@ module Wiq
 
     desc "billing_profiles SUBCOMMAND", "Look up a parent or coach's billing profile (admin only)"
     subcommand "billing_profiles", Wiq::Commands::BillingProfiles
+
+    desc "payouts SUBCOMMAND", "Bank payouts / deposits — list and show (admin only)"
+    subcommand "payouts", Wiq::Commands::Payouts
   end
 end

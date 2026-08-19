@@ -1,6 +1,6 @@
 ---
 name: wiq
-description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, reports, USAW/AAU memberships, fundraising, online store orders, or per-location/site breakdowns for multi-gym clubs. The `wiq` CLI provides read-only access to /api/v1 via personal access tokens. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", "how is the Eastside gym doing?", or anything that maps to a wrestling club's admin workflows.
+description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, payouts/bank deposits, reports, USAW/AAU memberships, fundraising, online store orders, or per-location/site breakdowns for multi-gym clubs. The `wiq` CLI provides read-only access to /api/v1 via personal access tokens. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", "how is the Eastside gym doing?", or anything that maps to a wrestling club's admin workflows.
 ---
 
 # WrestlingIQ CLI Skill
@@ -283,6 +283,25 @@ flagging anything as needing follow-up, cross-check that no successful
 charge for the same `(billing_profile_id, chargeable_id,
 chargeable_type)` tuple exists AFTER the failure's `created_at`. The
 canonical pattern is in `wiq workflows show failed-payments-recent`.
+
+### Payouts (bank deposits)
+
+For "when does our money hit the bank?" / "what deposited last week?" /
+bank-statement reconciliation — use the payouts surface (admin PAT only):
+
+```bash
+wiq payouts list --since 2026-08-01 --until 2026-08-18   # deposits in a window
+wiq payouts list --status in_transit                     # money on the way
+wiq payouts show <id>                                    # one deposit's detail
+```
+
+`--since/--until` filter on `deposits_at` (bank arrival date), not
+`created_at`. `Payout.status` is a plain string column (paid,
+in_transit, scheduled, ...) — no integer-enum translation, unlike
+charges. All
+money fields are integer cents. To see which charges make up a payout,
+go through charges: each `wiq charges list` row embeds its `payout`,
+so pull charges for the date window and group by `payout.id`.
 
 To go from a wrestler name to a billing_profile_id:
 
