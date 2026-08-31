@@ -5,7 +5,9 @@ module Wiq
     class Rosters < Base
       desc "list", "List rosters"
       long_desc <<~DESC
-        Returns every roster on the calling profile's team, paginated.
+        Returns the team's active rosters by default, paginated. Archived
+        rosters are hidden unless you pass --include-archived (returns both)
+        or --archived true (returns only archived).
 
         Season filtering is a CLI-side projection (WIQ has no first-class
         Season entity):
@@ -31,9 +33,12 @@ module Wiq
       method_option :season_tag, type: :string, desc: "Filter to rosters carrying this tag"
       method_option :location, type: :numeric, desc: "Filter to rosters at one location id"
       method_option :archived, type: :boolean, desc: "Show only archived (true) or active (false)"
+      method_option :include_archived, type: :boolean, default: false,
+                                       desc: "Include archived rosters alongside active ones"
       method_option :all, type: :boolean, default: false
       def list
         params = { "per_page" => 100 }
+        params["include_archived"] = true if options[:include_archived]
         unless options[:archived].nil?
           params["q[archived_eq]"] = options[:archived]
         end
