@@ -126,6 +126,78 @@ module Wiq
         )
       end
 
+      desc "stage_changes FAMILY_ID", "Stage-transition audit log for every prospect in a family"
+      long_desc <<~DESC
+        Append-only history of every stage move for every prospect (kid)
+        in the family, newest first. Each row: prospect_id + child_name,
+        from_stage (null on the initial create), to_stage, changed_at,
+        changed_via, and changed_by (profile, or null for system moves).
+
+        changed_via values:
+          manual              A person moved it (drawer, note shortcut, or a
+                              PAT write — changed_by names the coach)
+          trial_registration  Family bought a trial session
+          check_in            Kid checked in to a trial practice
+          trial_expired       Trial passes ran out
+          paid_registration   Registered for a paid session (→ converted)
+          subscription        Started a recurring membership (→ converted)
+          backfill            Historical import
+          bulk_archive        The stale-lead archive task
+
+        Use this to answer "did this lead actually trial or skip straight
+        to converted?" — the prospect row only carries its CURRENT stage —
+        and to review what an agent or coach did before attempting another
+        `wiq prospects advance` (moves are forward-only via PAT).
+      DESC
+      method_option :all, type: :boolean, default: false
+      def stage_changes(family_id)
+        records, total = fetch_index("/api/v1/prospect_families/#{family_id}/stage_changes",
+                                     { "per_page" => 50 },
+                                     key: "stage_changes")
+        render_index(
+          records, total: total,
+          summary: "Listed #{records.size} stage changes for family #{family_id}.",
+          breadcrumbs: [
+            { "cmd" => "wiq prospect_families show #{family_id}", "description" => "Back to the family" },
+            { "cmd" => "wiq prospect_families notes #{family_id}", "description" => "Contact log alongside the stage history" }
+          ]
+        )
+      end
+
+      desc "linked_answers FAMILY_ID", "Registration answers on the member profiles linked to a family"
+      long_desc <<~DESC
+        Trial-purchase leads skip the interest form, so their phone number
+        and other intake details usually exist only as registration answers
+        on the profiles the family is linked to: the guardian (parent or
+        coach) and each prospect's wrestler_profile. This returns one entry
+        per linked profile (profile_id, profile_type, full_name, relation =
+        guardian | wrestler) with its registration_answers, deduped to the
+        most recent answer per question and ordered by the question's
+        display order.
+
+        Not paginated. Coach visibility is enforced server-side, so
+        admin-only questions are omitted for non-admin tokens. A family
+        with no linked profiles returns an empty list.
+
+        Cheaper first stop: `wiq prospect_families show` already surfaces
+        `phone_suggestions` for blank-phone families. Use this when you
+        need everything known about the household before a call.
+      DESC
+      def linked_answers(family_id)
+        data = client.get("/api/v1/prospect_families/#{family_id}/linked_answers")
+        profiles = Array(data["linked_profiles"])
+        answer_count = profiles.sum { |p| Array(p["registration_answers"]).size }
+        render_index(
+          profiles,
+          summary: "#{profiles.size} linked profiles with #{answer_count} visible registration answers for family #{family_id}.",
+          breadcrumbs: [
+            { "cmd" => "wiq prospect_families show #{family_id}", "description" => "Back to the family" },
+            { "cmd" => "wiq prospect_families update #{family_id} --phone <number>",
+              "description" => "Copy a found phone onto the family record" }
+          ]
+        )
+      end
+
       desc "create", "Create a prospect family (household) [prospects:write]"
       long_desc <<~DESC
         POSTs to /api/v1/prospect_families. Requires a coach PAT minted

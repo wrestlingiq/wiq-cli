@@ -144,7 +144,7 @@ output (the CLI never logs your token — paste the full JSON safely).
 
 ## Status
 
-v0.6.0 — reads across every group, plus report submission and a
+v0.6.1 — reads across every group, plus report submission and a
 scoped write surface for the prospects pipeline (`prospect_families
 create/update/note`, `prospects create/update/advance`) gated by the
 `prospects:write` token scope. Other write commands deferred — see

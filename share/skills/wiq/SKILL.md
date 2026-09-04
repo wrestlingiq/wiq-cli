@@ -484,8 +484,15 @@ front rather than discover via errors):
    the family and is what clears stale-contact follow-up flags. A note
    without it is an internal comment only.
 5. **Attribution.** Every write is audited against the token; stage
-   changes and notes are attributed to the coach who minted it. Say so
-   if the user asks "who logged this?".
+   changes and notes are attributed to the coach who minted it.
+   `wiq prospect_families stage_changes <family_id>` is the audit log
+   (from/to stage, changed_at, changed_via, changed_by) — use it to
+   answer "who moved this lead?" and to check history before advancing.
+6. **Trial-purchase leads have thin family records.** They skipped the
+   interest form, so contact details often live only as registration
+   answers on the linked wrestler/guardian profiles. `wiq
+   prospect_families linked_answers <family_id>` returns them; copy a
+   phone back with `wiq prospect_families update --phone`.
 
 ## What's NOT available
 

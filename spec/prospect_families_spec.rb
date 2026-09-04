@@ -47,6 +47,22 @@ RSpec.describe Wiq::Commands::ProspectFamilies do
     end
   end
 
+  describe "#linked_answers" do
+    it "unwraps linked_profiles and counts answers across profiles" do
+      cmd = described_class.new(["9"], { agent: true }, {})
+      fake_client = double("client")
+      allow(cmd).to receive(:client).and_return(fake_client)
+      allow(cmd).to receive(:config).and_return(double(host: "https://example.test"))
+      expect(fake_client).to receive(:get)
+        .with("/api/v1/prospect_families/9/linked_answers")
+        .and_return("linked_profiles" => [
+          { "profile_id" => 1, "relation" => "guardian", "registration_answers" => [{ "id" => 1 }, { "id" => 2 }] },
+          { "profile_id" => 2, "relation" => "wrestler", "registration_answers" => [] }
+        ])
+      expect { cmd.linked_answers("9") }.to output(/"relation":"guardian"/).to_stdout
+    end
+  end
+
   describe "#update" do
     it "refuses an empty update rather than sending a no-op PATCH" do
       cmd = described_class.new(["1"], {}, {})

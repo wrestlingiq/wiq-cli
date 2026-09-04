@@ -89,9 +89,6 @@ Last updated: 2026-05-12 (after L1 ships).
   `prospects:write` scope. `DELETE /prospect_families/:id` and
   `DELETE /prospects/:id` remain out of reach — destroy actions are in
   no API capability server-side, by design.
-- **Prospect stage-change and linked-answer reads.** `GET
-  /prospect_families/:id/stage_changes` and `/linked_answers` are in the
-  server's `prospects:read` registry but not yet wrapped as commands.
 
 ## Packaging / distribution
 
