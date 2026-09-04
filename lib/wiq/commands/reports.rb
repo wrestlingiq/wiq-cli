@@ -234,9 +234,29 @@ module Wiq
         "SessionRegistrationAnswerReport" => {
           args: %w[paid_session_id],
           dates: :optional,
-          desc: "Full Q&A export of info submitted by parents at signup",
+          desc: "Full Q&A export of info submitted by parents at signup, one row per wrestler " \
+                "with stable ids + registration status",
           recommended: true,
-          notes: "Pass --paid-session <id> — required."
+          notes: "Pass --paid-session <id> — required. The default (vrow) row shape " \
+                 "leads with seven registration columns: \"WIQ ID #\" (wrestler_profile " \
+                 "id — same header/value as RosterReport column A, so the two reports " \
+                 "join on it), \"Registration ID\" (the stable key for external syncs), " \
+                 "\"Registration status\" (paid | partially_paid | pending | overdue | " \
+                 "canceled | awaiting_approval), \"Good standing\" (true/false: status in " \
+                 "paid/partially_paid/pending), \"Registered at\", \"Registration updated " \
+                 "at\", \"Registration canceled at\" (timestamps in the team's zone; blank " \
+                 "unless canceled). Then Last/First name, Email, Account type, Academic " \
+                 "class, Weight class, DOB, Age, created-at, USAW/AAU membership columns " \
+                 "(unless disabled for the team), each wrestler registration question, " \
+                 "and per-guardian name/email/type + guardian questions. One row per " \
+                 "wrestler: when a wrestler has several registrations for the session " \
+                 "(canceled then re-registered) the latest non-canceled one is " \
+                 "reported, else the latest canceled one; blank registration columns " \
+                 "mean no registration row exists. Anonymous sessions emit only " \
+                 "Last name / First name / Email. --v1 returns structured JSON " \
+                 "(wrestler_profiles + questions + answers) without the " \
+                 "registration columns.",
+          example: "wiq reports run SessionRegistrationAnswerReport --paid-session 42"
         },
         "PaidSessionAccountingReport" => {
           args: %w[paid_session_id],

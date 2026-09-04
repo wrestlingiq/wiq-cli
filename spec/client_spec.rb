@@ -25,6 +25,21 @@ RSpec.describe Wiq::Client do
     client
   end
 
+  describe "#patch" do
+    it "sends a JSON body with PATCH (used by prospects/prospect_families update)" do
+      observed = nil
+      stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+        stub.patch("/api/v1/prospects/5") do |env|
+          observed = JSON.parse(env.body)
+          [200, { "Content-Type" => "application/json" }, '{"id":5,"stage":"trialing"}']
+        end
+      end
+      result = build_client(stubs).patch("/api/v1/prospects/5", { "prospect" => { "stage" => "trialing" } })
+      expect(observed).to eq("prospect" => { "stage" => "trialing" })
+      expect(result).to eq("id" => 5, "stage" => "trialing")
+    end
+  end
+
   describe "#get" do
     it "sends Authorization: Bearer <pat>" do
       observed_auth = nil

@@ -9,7 +9,8 @@ module Wiq
   # Thin wrapper around Faraday that:
   #   - Adds Authorization: Bearer <pat>
   #   - Parses JSON requests and responses
-  #   - Retries on 429 and 5xx (Retry-After honored)
+  #   - Retries on 429 and 5xx (Retry-After honored) — GET/HEAD only, so a
+  #     write is never replayed
   #   - Translates non-2xx responses into Wiq::APIError
   #   - Exposes paginate(path, params) that walks the Link: rel=next chain
   class Client
@@ -34,6 +35,10 @@ module Wiq
 
     def put(path, body = {})
       request(:put, path, body: body)
+    end
+
+    def patch(path, body = {})
+      request(:patch, path, body: body)
     end
 
     def delete(path, params = {})

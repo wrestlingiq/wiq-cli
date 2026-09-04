@@ -10,7 +10,8 @@ module Wiq
   #   {
   #     "<host>": {
   #       "<alias>": { "token": "...", "token_prefix": "...", "name": "...",
-  #                    "profile": {...}, "stored_at": "..." },
+  #                    "profile": {...}, "scopes": ["prospects:write"],
+  #                    "stored_at": "..." },
   #       "<alias>": { ... }
   #     }
   #   }
@@ -55,13 +56,14 @@ module Wiq
             "token_prefix" => entry["token_prefix"],
             "name" => entry["name"],
             "profile" => entry["profile"],
+            "scopes" => entry["scopes"],
             "stored_at" => entry["stored_at"]
           }
         end
       end
     end
 
-    def store(host:, alias_name:, token:, token_prefix: nil, name: nil, profile: nil)
+    def store(host:, alias_name:, token:, token_prefix: nil, name: nil, profile: nil, scopes: nil)
       data = load_all
       data[host] ||= {}
       data[host][alias_name] = {
@@ -69,6 +71,7 @@ module Wiq
         "token_prefix" => token_prefix,
         "name" => name,
         "profile" => profile,
+        "scopes" => scopes,
         "stored_at" => Time.now.utc.iso8601
       }.compact
       write(data)

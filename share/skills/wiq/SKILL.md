@@ -1,14 +1,16 @@
 ---
 name: wiq
-description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, payouts/bank deposits, reports, USAW/AAU memberships, fundraising, online store orders, or per-location/site breakdowns for multi-gym clubs. The `wiq` CLI provides read-only access to /api/v1 via personal access tokens. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", "how is the Eastside gym doing?", or anything that maps to a wrestling club's admin workflows.
+description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, payouts/bank deposits, reports, USAW/AAU memberships, fundraising, online store orders, or per-location/site breakdowns for multi-gym clubs. The `wiq` CLI reads /api/v1 via personal access tokens and, when the token carries the prospects:write scope, can also create/edit leads, log contact notes, and advance prospects through the pipeline. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", "how is the Eastside gym doing?", or anything that maps to a wrestling club's admin workflows.
 ---
 
 # WrestlingIQ CLI Skill
 
-`wiq` is a read-only Ruby CLI for WrestlingIQ data, designed to be driven
-by both humans and AI agents. It hits `/api/v1` using per-user personal
-access tokens (PATs). This skill orients you to its shape; the CLI itself
-is the source of truth for what's available right now.
+`wiq` is a Ruby CLI for WrestlingIQ data, designed to be driven by both
+humans and AI agents. It hits `/api/v1` using per-user personal access
+tokens (PATs). Every token can read; a token additionally minted with a
+write scope (see "Writes" below) can create and edit leads. This skill
+orients you to its shape; the CLI itself is the source of truth for
+what's available right now.
 
 ## Bootstrap (always do this first)
 
@@ -49,9 +51,17 @@ per situation.
   CoachProfile + ParentProfile on different teams mints a separate token
   per role. The CLI does not switch profiles at runtime.
 - **Everything is gated by the bound profile's permissions.** Parent or
-  wrestler PATs cannot run reports (`enforce_pat_restrictions` returns 403
-  with body `"Personal access tokens are read-only..."` — reports is the
-  one write currently on the PAT allowlist).
+  wrestler PATs cannot run reports or touch prospects (Pundit requires a
+  CoachProfile on the team).
+- **Writes need a capability on BOTH the team and the token.** Reads are
+  implicit for every token. A write (`POST`/`PATCH`) succeeds only when it
+  maps to a capability in the server's registry (`prospects:write`,
+  `reports:write`) that a team admin has enabled under Settings → API
+  Access AND that the token was minted with. Token scopes are immutable:
+  to add one, revoke + mint a new token, then `wiq auth login --force`.
+  `wiq auth status` / `wiq doctor` show the live scopes — check them
+  before attempting a write. `reports:write` was backfilled onto every
+  existing team and token, so report submission keeps working.
 - **The 9 finance reports require `admin?`.** They're flagged
   `admin_only: true` in `wiq reports types`. Workflows that submit them
   carry the same flag. Non-admin coach PATs 403 on these.
@@ -106,8 +116,12 @@ Common codes and the right response:
 | `alias_not_found` | `--as` named a slot that doesn't exist | Check `wiq auth list` |
 | `unauthorized` (401) | Token rejected by server | Re-login; could be revoked |
 | `forbidden` (403) | Pundit denial (often admin gate on a finance report) | Check the report's `admin_only:` flag in `wiq reports types` |
+| `capability_disabled_for_team` (403) | Team hasn't enabled the write capability named in the message | Ask a team admin to enable it at `<host>/settings/team/api_access`; nothing to change on the token |
+| `token_missing_scope` (403) | Team allows the write, but this token was minted without the scope | Mint a new token WITH the scope, `wiq auth login --force`; scopes can't be edited in place |
+| `pat_write_unsupported` (403) | Endpoint has no API write capability at all | Use the WIQ web app; not a permissions problem |
 | `not_found` (404) | Resource doesn't exist for this profile | Confirm the id; cross-team enumeration returns 404 to avoid leaking existence |
 | `validation_failed` (422) | Server-side input rejection | Read `details` for per-field messages |
+| `stage_transition_refused` (422) | PAT tried to move a prospect backwards or out of a terminal stage | Don't retry; tell the user a coach must make that move in the web app |
 | `rate_limited` (429) | 100 req / 3 sec per IP exceeded | Back off |
 | `season_not_found` | `--season <year>` matched zero paid sessions | `wiq paid_sessions list` to see configured periods |
 | `report_failed` | The report ran but errored server-side | Inspect `details` (the report's result jsonb) |
@@ -181,6 +195,14 @@ Key reports an agent should know by heart:
   while?"
 - **`PaidSessionAccountingReport`** (admin_only) — Line-item charges for
   a paid session.
+- **`SessionRegistrationAnswerReport`** — Signup Q&A for one
+  `--paid-session <id>`, one row per wrestler. Rows lead with **"WIQ ID
+  #"** (wrestler_profile id, identical to RosterReport's first column, so
+  the two join on it), **"Registration ID"** (the stable key to hand an
+  external sync), "Registration status", "Good standing", "Registered
+  at", "Registration updated at", "Registration canceled at" — then the
+  name/DOB/USAW/AAU columns and every registration question. Use this,
+  not name+DOB matching, when a customer syncs registrations elsewhere.
 
 For anything else, `wiq reports types` is faster than guessing.
 
@@ -426,20 +448,59 @@ Three gotchas an agent must know:
    activity. Rosters/events/paid_sessions embed their `location` object
    (or null) in list payloads, so you can check coverage cheaply.
 
-## What's NOT available (yet)
+## Writes — the prospects pipeline (`prospects:write`)
 
-The CLI is read-only by design except for report submission. You
-cannot via this CLI:
+The only writable surface besides report submission is the leads
+pipeline. Six commands, all requiring the `prospects:write` scope:
 
-- Create/edit prospects, families, notes, check-ins, events, paid
-  sessions, rosters, locations, or any other resource
+```bash
+wiq prospect_families create --first-name Dana --last-name Lee --email dana@x.com --phone 5551234
+wiq prospect_families update <family_id> --phone 5551234 --assigned-coach <coach_id>
+wiq prospect_families note <family_id> --activity-type phone_call --content "Left voicemail" \
+    [--clear-follow-up <prospect_ids>] [--add-follow-up <prospect_ids>]
+wiq prospects create <family_id> --first-name Sam --dob 2016-03-04 --academic-class 4th
+wiq prospects update <prospect_id> --stage trial_scheduled --trial-event <event_id>
+wiq prospects advance <prospect_id> trialing
+```
+
+Rules the server enforces on PAT callers (and you should respect up
+front rather than discover via errors):
+
+1. **Check scopes first.** `wiq auth status` → `live_scopes` must include
+   `prospects:write`. If it doesn't, stop and tell the user: either the
+   team admin needs to enable it (Settings → API Access) or they need a
+   new token minted with it. Don't loop on 403s.
+2. **Stage moves are forward-only and never leave a terminal stage.**
+   Order: inquiry → trial_scheduled → trialing → trial_complete →
+   converted | didnt_join | archived. Skipping ahead is fine; going back
+   or moving a converted/archived lead returns `stage_transition_refused`
+   (422). A coach can force it in the web app. Deletes are never allowed
+   through the API.
+3. **Search before you create.** `wiq prospect_families list --query
+   <name|email|phone>` finds existing households so you don't duplicate
+   a family that came in through the web interest form.
+4. **Log contact when you act.** A note WITH `--activity-type` counts as
+   contact: it stamps `last_contacted_at` on every active prospect in
+   the family and is what clears stale-contact follow-up flags. A note
+   without it is an internal comment only.
+5. **Attribution.** Every write is audited against the token; stage
+   changes and notes are attributed to the coach who minted it. Say so
+   if the user asks "who logged this?".
+
+## What's NOT available
+
+You cannot via this CLI:
+
+- Create/edit check-ins, events, paid sessions, rosters, locations, or
+  any resource other than prospects/families/notes and reports
+- Delete anything (destroy actions are outside every capability)
 - Mint, list, or revoke PATs (use the web UI at
   `<host>/settings/personal_access_tokens`)
-- Mark attendance, advance prospect stages, log contact notes
-- Trigger event-change notifications or roster re-sync jobs
+- Mark attendance or trigger event-change notifications / roster
+  re-sync jobs
 
-If the user asks for a write operation, tell them it's not yet exposed
-and point them at the WIQ web UI for now.
+If the user asks for one of these, say it's not exposed and point them
+at the WIQ web UI.
 
 ## When to compose vs run a workflow
 

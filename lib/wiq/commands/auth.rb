@@ -21,8 +21,14 @@ module Wiq
 
         Verification: the CLI hits `GET /api/v1/personal_access_tokens` to
         confirm the token works AND fetch the bound profile (display_name,
-        team_name, type) in one round trip. That metadata is shown after
-        login and stored alongside the token.
+        team_name, type) plus the token's write `scopes` in one round trip.
+        That metadata is shown after login and stored alongside the token.
+
+        Scopes: every PAT can read. Writes need a capability (currently
+        prospects:write, reports:write) that the team admin has enabled
+        under Settings → API Access AND that the token was minted with.
+        Scopes are immutable — to change them, revoke and mint a new
+        token, then re-run this command with --force.
       DESC
       method_option :token, type: :string, desc: "PAT value (otherwise prompted interactively)"
       method_option :force, type: :boolean, default: false,
@@ -64,7 +70,8 @@ module Wiq
           token: token,
           token_prefix: metadata[:token_prefix],
           name: metadata[:name],
-          profile: metadata[:profile]
+          profile: metadata[:profile],
+          scopes: metadata[:scopes]
         )
 
         render(
@@ -74,10 +81,11 @@ module Wiq
             "token_prefix" => metadata[:token_prefix],
             "name" => metadata[:name],
             "profile" => metadata[:profile],
+            "scopes" => metadata[:scopes],
             "stored_at" => Wiq::Credentials.for_host(host, alias_name)["stored_at"]
           }.compact,
           summary: profile_summary("Stored PAT for #{host} as #{alias_name.inspect}",
-                                   metadata[:profile]),
+                                   metadata[:profile], metadata[:scopes]),
           breadcrumbs: [
             { "cmd" => "wiq auth status --as #{alias_name}",
               "description" => "Verify the stored token works" },
@@ -93,7 +101,9 @@ module Wiq
 
         Performs a best-effort live probe against
         `/api/v1/personal_access_tokens` to confirm the token still works
-        and surface the live last_used_at. If the probe fails (network,
+        and surface the live last_used_at and write `scopes` (empty =
+        read-only). Check `live_scopes` before attempting a write command
+        such as `wiq prospects advance`. If the probe fails (network,
         revoked token, host unreachable), the error appears in `live_error`
         rather than aborting the command — local state is always shown.
 
@@ -126,9 +136,11 @@ module Wiq
           "token_prefix" => store_entry["token_prefix"],
           "stored_name" => store_entry["name"],
           "stored_profile" => store_entry["profile"],
+          "stored_scopes" => store_entry["scopes"],
           "live_name" => live_metadata&.dig(:name),
           "live_last_used_at" => live_metadata&.dig(:last_used_at),
           "live_profile" => live_metadata&.dig(:profile),
+          "live_scopes" => live_metadata&.dig(:scopes),
           "live_error" => live_error
         }.compact
 
@@ -138,7 +150,8 @@ module Wiq
                           : "No alias resolvable for this host."
           else
             profile_summary("Token reachable (alias=#{cfg.alias_name})",
-                            live_metadata&.dig(:profile) || store_entry["profile"])
+                            live_metadata&.dig(:profile) || store_entry["profile"],
+                            live_metadata ? live_metadata[:scopes] : store_entry["scopes"])
           end
 
         render(data, summary: summary)
@@ -231,25 +244,36 @@ module Wiq
             key: "personal_access_tokens"
           )
           match = rows.find { |r| r["token_prefix"] == prefix }
-          return { token_prefix: prefix, name: nil, last_used_at: nil, profile: nil } unless match
+          return { token_prefix: prefix, name: nil, last_used_at: nil, profile: nil, scopes: nil } unless match
 
           {
             token_prefix: match["token_prefix"],
             name: match["name"],
             last_used_at: match["last_used_at"],
-            profile: match["profile"]
+            profile: match["profile"],
+            # Servers predating per-token scopes omit the key; treat as read-only.
+            scopes: Array(match["scopes"])
           }
         end
 
-        def profile_summary(prefix, profile)
-          return "#{prefix}." unless profile
+        def profile_summary(prefix, profile, scopes = nil)
+          scope_note =
+            if scopes.nil?
+              nil
+            elsif scopes.empty?
+              "scopes: read-only"
+            else
+              "scopes: #{scopes.join(", ")}"
+            end
+          return [prefix, scope_note].compact.join("; ") + "." unless profile
 
           who = profile["display_name"]
           where = profile["team_name"]
           kind = profile["type"]
           tail = [who, where].compact.reject(&:empty?).join(" @ ")
           tail += " (#{kind})" if kind && !kind.empty?
-          tail.empty? ? "#{prefix}." : "#{prefix} — #{tail}."
+          head = tail.empty? ? prefix : "#{prefix} — #{tail}"
+          [head, scope_note].compact.join("; ") + "."
         end
       end
     end

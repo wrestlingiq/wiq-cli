@@ -68,10 +68,10 @@ module Wiq
     desc "locations SUBCOMMAND", "Team locations / sites — ID discovery for --location flags (list, show)"
     subcommand "locations", Wiq::Commands::Locations
 
-    desc "prospects SUBCOMMAND", "Prospect pipeline — individual kids (list, show, summary)"
+    desc "prospects SUBCOMMAND", "Prospect pipeline — individual kids (list, show, summary; create, update, advance need prospects:write)"
     subcommand "prospects", Wiq::Commands::Prospects
 
-    desc "prospect_families SUBCOMMAND", "Prospect pipeline — households (list, show, notes)"
+    desc "prospect_families SUBCOMMAND", "Prospect pipeline — households (list, show, notes; create, update, note need prospects:write)"
     subcommand "prospect_families", Wiq::Commands::ProspectFamilies
 
     desc "workflows SUBCOMMAND", "Named multi-step recipes for common club-admin questions (list, show)"

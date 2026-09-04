@@ -15,6 +15,9 @@ module Wiq
           6. Live reachability + auth probe via
              `GET /api/v1/personal_access_tokens`
           7. Bound profile (display_name, type, team) for the calling token
+          8. Write scopes on the token (empty = read-only; writes such as
+             `wiq prospects advance` need the matching capability enabled
+             by the team AND present on the token)
 
         Exits non-zero if any check fails. Agents should run this first
         when handed an unfamiliar shell to confirm they can actually call
@@ -59,6 +62,12 @@ module Wiq
               checks << check("Bound profile",
                               "#{profile["display_name"]} (#{profile["type"]}) @ #{profile["team_name"]}",
                               ok: !profile["display_name"].nil?)
+              scopes = Array(match["scopes"])
+              checks << check("Write scopes",
+                              scopes.empty? ? "none (read-only)" : scopes.join(", "),
+                              ok: true,
+                              hint: scopes.empty? ? "Reads only. Mint a token with prospects:write to use " \
+                                                    "prospect write commands." : nil)
             else
               checks << check("Reachability + auth", "200 OK", ok: true)
               checks << check("Bound profile", "(token not in own user's PAT list?)",

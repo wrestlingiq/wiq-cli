@@ -23,8 +23,9 @@ module Wiq
         restart needed. Re-run with --force to overwrite an existing
         install (useful when upgrading the gem).
 
-        The skill is read-only on the WIQ side: it teaches Claude how to
-        drive `wiq`, but doesn't touch any WIQ data.
+        Installing the skill doesn't touch any WIQ data: it only teaches
+        Claude how to drive `wiq`. What Claude can then change is bounded
+        by the token's write scopes (see `wiq auth status`).
       DESC
       method_option :project, type: :boolean, default: false,
                               desc: "Install per-project (./.claude/skills/) instead of user-global"

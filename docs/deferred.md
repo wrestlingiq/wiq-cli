@@ -81,17 +81,17 @@ Last updated: 2026-05-12 (after L1 ships).
 - **`wiq url parse <url>`** — extract team/roster/event IDs from WIQ web
   URLs. Initial-plan item; useful for agents pasted URLs by humans.
 - **`wiq paid_sessions create/update`**, **`wiq rosters create/update`**,
-  etc. — every write path on every resource. v1 is reads-only except
-  report submission. Cherry-pick as customers ask.
-- **Prospect write commands.** API supports `POST /prospect_families`,
-  `PATCH /prospect_families/:id` (incl. assigned_coach), `DELETE`,
-  `POST /prospect_families/:id/prospects`, `PATCH /prospects/:id`
-  (incl. stage transitions via `advance_to!`), and
-  `POST /prospect_families/:id/notes` (with `clear_follow_up_for[]` /
-  `add_follow_up_for[]` side-effect params). Reads-only in v1 — most
-  pipeline edits happen in the drawer UI today, and exposing
-  stage-transition writes without first watching agents use them is
-  asking for trouble.
+  etc. — every other write path. Each needs a server-side capability in
+  `ApiCapability::REGISTRY` first (writes fail closed without one), then
+  a CLI command. Cherry-pick as customers ask.
+- **Prospect deletes.** Shipped in v0.6.0: `prospect_families
+  create/update/note` and `prospects create/update/advance` behind the
+  `prospects:write` scope. `DELETE /prospect_families/:id` and
+  `DELETE /prospects/:id` remain out of reach — destroy actions are in
+  no API capability server-side, by design.
+- **Prospect stage-change and linked-answer reads.** `GET
+  /prospect_families/:id/stage_changes` and `/linked_answers` are in the
+  server's `prospects:read` registry but not yet wrapped as commands.
 
 ## Packaging / distribution
 
@@ -133,16 +133,10 @@ Last updated: 2026-05-12 (after L1 ships).
 
 ## Backend asks (push back to WIQ app team)
 
-- **`GET /api/v1/prospects?query=<str>` 500s on ambiguous ORDER BY.**
-  Found during the Phase 5 agent telemetry pass. The controller does
-  `Prospect.joins(:prospect_family).merge(ProspectFamily.search(query))
-  .order(created_at: :desc)` — both `prospects` and `prospect_families`
-  have `created_at`, so the join makes the order ambiguous. One-line
-  fix on the WIQ-app side: change to
-  `.order("prospects.created_at DESC")` (or
-  `.order(Prospect.arel_table[:created_at].desc)`). The CLI documents
-  the workaround (use `wiq prospect_families list --query` — same
-  matches, returns families with prospects embedded) until this ships.
+- ~~**`GET /api/v1/prospects?query=<str>` 500s on ambiguous ORDER BY.**~~ —
+  SHIPPED (WIQ-app commit 7ac9d90a5, 2026-05-21, qualifies the ORDER BY
+  as `prospects.created_at`). `wiq prospects list --query` works; the
+  KNOWN BUG note was removed from its long_desc in v0.6.0.
 
 
 - ~~**`days_threshold` permit fix on `Api::V1::ReportsController`**~~ —

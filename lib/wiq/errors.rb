@@ -76,13 +76,28 @@ module Wiq
   end
 
   # Mirror of the HTTP error envelope from /api/v1.
+  #
+  # PAT write policy (Api::V1::BaseController#enforce_pat_restrictions):
+  # a write goes through only when it maps to a capability in the server's
+  # ApiCapability registry that the team has enabled AND the token carries.
+  # The server emits three distinct 403 bodies for the three failure modes,
+  # naming the capability verbatim; we key off that wording to give each
+  # its own `code` + fix-it hint. Keep the regexes in sync with
+  # `pat_denial_message` in the Rails app.
   class APIError < Error
-    attr_reader :status, :response_body, :request_id
+    attr_reader :status, :response_body, :request_id, :capability
+
+    PAT_NOT_WRITABLE = /not writable with a personal access token/i
+    PAT_TEAM_DISABLED = /team has not enabled (\S+) for API access/i
+    PAT_TOKEN_MISSING_SCOPE = /token lacks the (\S+) scope/i
+    PAT_LEGACY_READ_ONLY = /personal access tokens are read-only/i
+    PAT_STAGE_REFUSED = /stage cannot move from (\S+) to (\S+) with a personal access token/i
 
     def initialize(status:, body:, request_id: nil)
       @status = status
       @response_body = body
       @request_id = request_id
+      @capability = nil
 
       code, message, hint = derive(status, body)
       super(message, code: code, hint: hint, exit_code: 1, details: body)
@@ -97,17 +112,48 @@ module Wiq
         ["unauthorized", "Token rejected by server (401).",
          "Run `wiq auth status` to inspect the active token; `wiq auth login` to replace it."]
       when 403
-        ["forbidden", "Server denied access (403): #{msgs}",
-         "PATs inherit the user's permissions. Confirm the minting user can see this resource in the web app."]
+        derive_forbidden(msgs)
       when 404
         ["not_found", "Resource not found (404).", nil]
       when 422
-        ["validation_failed", "Validation error (422): #{msgs}", nil]
+        derive_unprocessable(msgs)
       when 429
         ["rate_limited", "Rate limited (429): #{msgs}",
          "WIQ enforces 100 req/3s per IP. Back off and retry."]
       else
         ["http_#{status}", "HTTP #{status}: #{msgs}", nil]
+      end
+    end
+
+    def derive_forbidden(msgs)
+      if msgs =~ PAT_NOT_WRITABLE || msgs =~ PAT_LEGACY_READ_ONLY
+        ["pat_write_unsupported", "Server denied access (403): #{msgs}",
+         "This endpoint has no API write capability, so no personal access token can call it. " \
+         "Make the change in the WIQ web app."]
+      elsif (m = msgs.match(PAT_TEAM_DISABLED))
+        @capability = m[1]
+        ["capability_disabled_for_team", "Server denied access (403): #{msgs}",
+         "A team admin must enable #{@capability} under Settings → API Access " \
+         "(<host>/settings/team/api_access). Existing tokens minted with that scope start working immediately."]
+      elsif (m = msgs.match(PAT_TOKEN_MISSING_SCOPE))
+        @capability = m[1]
+        ["token_missing_scope", "Server denied access (403): #{msgs}",
+         "Token scopes are immutable. Mint a new token that includes #{@capability} at " \
+         "<host>/settings/personal_access_tokens, then `wiq auth login --force` to replace the stored one. " \
+         "Run `wiq auth status` to see the scopes on the current token."]
+      else
+        ["forbidden", "Server denied access (403): #{msgs}",
+         "PATs inherit the user's permissions. Confirm the minting user can see this resource in the web app."]
+      end
+    end
+
+    def derive_unprocessable(msgs)
+      if msgs =~ PAT_STAGE_REFUSED
+        ["stage_transition_refused", "Validation error (422): #{msgs}",
+         "Stage changes via a personal access token are forward-only and cannot leave a terminal stage " \
+         "(converted, didnt_join, archived). A coach can force the move in the WIQ web app."]
+      else
+        ["validation_failed", "Validation error (422): #{msgs}", nil]
       end
     end
 

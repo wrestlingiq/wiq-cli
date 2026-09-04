@@ -288,13 +288,49 @@ file with the WIQ team.
     permit list as of the May 2026 WIQ-app fix. The CLI's
     `--days-threshold` flag lands unchanged on the model.
 
+**PAT write capabilities (`Api::V1::BaseController#enforce_pat_restrictions`):**
+
+PAT traffic is read-only by default. A non-GET request succeeds only when
+`ApiCapability.for(controller, action)` resolves to a capability that
+(a) the team has enabled (`Team#api_write_capabilities`, editable by an
+admin at `/settings/team/api_access`) and (b) the token carries
+(`PersonalAccessToken#scopes`, immutable after mint, coach tokens only).
+Registry today:
+
+| Capability | Actions |
+| --- | --- |
+| `prospects:write` | `prospect_families#create/#update`, `prospects#create/#update`, `prospect_family_notes#create` |
+| `reports:write` | `reports#create` |
+
+Unregistered writes (every `destroy`, everything else) fail closed with
+`"This endpoint is not writable with a personal access token."` The other
+two denials name the capability verbatim — the CLI regexes on them:
+
+| Body | CLI `code` |
+| --- | --- |
+| `This endpoint is not writable with a personal access token.` | `pat_write_unsupported` |
+| `This team has not enabled <cap> for API access. …` | `capability_disabled_for_team` |
+| `This token lacks the <cap> scope. Revoke it and mint a new token …` | `token_missing_scope` |
+
+Team policy is re-checked per request, so an admin turning a capability
+off disables every token holding it immediately. Every PAT call writes an
+audit row (`PersonalAccessTokenAuditJob`) carrying the capability + scopes.
+`GET /api/v1/personal_access_tokens` now includes `scopes: [...]` per
+token; the CLI stores it at login and shows it in `auth status` / `doctor`.
+
+Prospect-specific PAT rule (`ProspectsController#update`): stage changes
+are not forced for token callers, so `advance_to!` refuses downgrades and
+moves out of a terminal stage. The controller turns that silent no-op
+into a 422 `"Stage cannot move from <a> to <b> with a personal access
+token …"` → CLI code `stage_transition_refused`.
+
 **Auth model (POST /api/v1/reports):**
 
 - Every report POST requires a `CoachProfile`-bound PAT on the same team
-  (`coach_belongs_to_team?` in `ReportPolicy#create?`). Parent/wrestler
-  PATs return 403 with body `"Personal access tokens are read-only..."`
-  via `enforce_pat_restrictions` — reports is the one write currently on
-  the PAT allowlist.
+  (`coach_belongs_to_team?` in `ReportPolicy#create?`) AND the
+  `reports:write` capability (backfilled onto every existing team and
+  token when per-token scopes shipped, so nothing changed for existing
+  scripts). See "PAT write capabilities" below.
 - A subset of report types — the 9 listed in `Report.finance_types`
   (Membership, PaidSessionAccounting, RecurringDonor, DonationTransaction,
   FundraiserSummary, FundraiserAccounting, InProgressRegistration,
@@ -343,7 +379,7 @@ DiscountedSubscriptionsReport, **DonationTransactionReport**,
 PaidSessionAddOnDetailReport, PaidSessionAddOnSummaryReport,
 **PracticeAttendanceReport**, **RecurringDonorReport**, RegistrationAnswerReport,
 **RegistrationFinanceSummaryReport**, **RosterReport**, **RosterStatsReport**,
-**ScholarshipAuditReport**, SessionRegistrationAnswerReport,
+**ScholarshipAuditReport**, **SessionRegistrationAnswerReport**,
 TeamRegistrationRosterReport, UsawExpiredReport, UsawExportReport, UsawReport,
 **WinLossReport**, **WrestlersWithoutSubscriptionsReport**`
 

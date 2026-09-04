@@ -4,6 +4,7 @@ module Wiq
   module Commands
     class ProspectFamilies < Base
       SORT_OPTIONS = %w[newest oldest_followup oldest_contact next_trial].freeze
+      ACTIVITY_TYPES = %w[phone_call sms email in_person other].freeze
 
       desc "list", "List prospect families (one row per household)"
       long_desc <<~DESC
@@ -123,6 +124,159 @@ module Wiq
             { "cmd" => "wiq prospect_families show #{family_id}", "description" => "Back to the family" }
           ]
         )
+      end
+
+      desc "create", "Create a prospect family (household) [prospects:write]"
+      long_desc <<~DESC
+        POSTs to /api/v1/prospect_families. Requires a coach PAT minted
+        with the prospects:write scope on a team that has enabled it
+        (Settings → API Access). Only --first-name is required; --email
+        must be a valid address when given.
+
+        A family is the household record — add the kid(s) afterwards with
+        `wiq prospects create <family_id> --first-name ...`. Check for an
+        existing household first with `wiq prospect_families list --query
+        <name or email or phone>` to avoid duplicates.
+
+        --source is the machine-readable origin (e.g. web_form, walk_in,
+        referral); --hear-about-us is the family's free-text answer to
+        "How did you hear about us?". --assigned-coach takes a
+        coach_profile id. --guardian-id/--guardian-type link an existing
+        ParentProfile or CoachProfile as the guardian.
+      DESC
+      method_option :first_name, type: :string, required: true, desc: "contact_first_name (required)"
+      method_option :last_name, type: :string, desc: "contact_last_name"
+      method_option :email, type: :string, desc: "contact_email"
+      method_option :phone, type: :string, desc: "contact_phone"
+      method_option :hear_about_us, type: :string, desc: "Free-text 'How did you hear about us?'"
+      method_option :source, type: :string, desc: "Lead source tag (free text)"
+      method_option :assigned_coach, type: :numeric, desc: "assigned_coach_id (coach_profile id)"
+      method_option :guardian_id, type: :numeric, desc: "Existing profile id to link as guardian"
+      method_option :guardian_type, type: :string, enum: %w[ParentProfile CoachProfile],
+                                    desc: "Profile type for --guardian-id"
+      def create
+        family = client.post("/api/v1/prospect_families", { "prospect_family" => build_family_attrs })
+        render(family,
+               summary: "Created prospect family #{family["id"]} — #{family["contact_name"]}.",
+               breadcrumbs: [
+                 { "cmd" => "wiq prospects create #{family["id"]} --first-name <child>",
+                   "description" => "Add the kid(s) to this household" },
+                 { "cmd" => "wiq prospect_families note #{family["id"]} --activity-type phone_call --content \"...\"",
+                   "description" => "Log the first contact" }
+               ])
+      end
+
+      desc "update ID", "Edit a prospect family's contact info or assignment [prospects:write]"
+      long_desc <<~DESC
+        PATCHes /api/v1/prospect_families/:id with only the flags you
+        pass. Requires the prospects:write scope (team-enabled + on the
+        token). Typical uses: fill in a missing phone (see
+        `phone_suggestions` on `wiq prospect_families show`), reassign a
+        coach, or correct a misspelled name.
+      DESC
+      method_option :first_name, type: :string, desc: "contact_first_name"
+      method_option :last_name, type: :string, desc: "contact_last_name"
+      method_option :email, type: :string, desc: "contact_email"
+      method_option :phone, type: :string, desc: "contact_phone"
+      method_option :hear_about_us, type: :string, desc: "Free-text 'How did you hear about us?'"
+      method_option :source, type: :string, desc: "Lead source tag (free text)"
+      method_option :assigned_coach, type: :numeric, desc: "assigned_coach_id (coach_profile id)"
+      method_option :guardian_id, type: :numeric, desc: "Existing profile id to link as guardian"
+      method_option :guardian_type, type: :string, enum: %w[ParentProfile CoachProfile],
+                                    desc: "Profile type for --guardian-id"
+      def update(id)
+        attrs = build_family_attrs
+        if attrs.empty?
+          raise Wiq::Error.new("Nothing to update — pass at least one field flag.",
+                               code: "no_fields",
+                               hint: "See `wiq prospect_families update --help` for the editable fields.")
+        end
+
+        family = client.patch("/api/v1/prospect_families/#{id}", { "prospect_family" => attrs })
+        render(family,
+               summary: "Updated prospect family #{family["id"]} — #{family["contact_name"]}.",
+               breadcrumbs: [
+                 { "cmd" => "wiq prospect_families show #{family["id"]}", "description" => "Refetch the family" }
+               ])
+      end
+
+      desc "note FAMILY_ID", "Log a contact / add a note to a prospect family [prospects:write]"
+      long_desc <<~DESC
+        POSTs to /api/v1/prospect_families/:family_id/notes. Requires the
+        prospects:write scope (team-enabled + on the token). The note is
+        authored by the coach who minted the token.
+
+        --activity-type marks the note as a logged contact: the server
+        bumps last_contacted_at on every ACTIVE prospect in the family,
+        which is what clears "stale contact" follow-up flags. Omit it for
+        an internal note that shouldn't count as contact.
+
+        Side effects in the same call (prospect ids, comma-separated):
+          --clear-follow-up 12,34   Clear the needs_follow_up flag
+          --add-follow-up 56        Flag for follow-up (reason=manual)
+        Ids outside this family are ignored server-side.
+
+        Content is sent as plain text; @mentions are processed server-side.
+      DESC
+      method_option :content, type: :string, required: true, desc: "Note body (plain text)"
+      method_option :activity_type, type: :string, enum: ACTIVITY_TYPES,
+                                    desc: "phone_call | sms | email | in_person | other (omit for a plain note)"
+      method_option :clear_follow_up, type: :string,
+                                      desc: "Comma-separated prospect ids to un-flag for follow-up"
+      method_option :add_follow_up, type: :string,
+                                    desc: "Comma-separated prospect ids to flag for follow-up"
+      def note(family_id)
+        body = {
+          "note" => {
+            "content" => options[:content],
+            "plain_content" => options[:content]
+          }
+        }
+        body["note"]["activity_type"] = options[:activity_type] if options[:activity_type]
+        clear_ids = parse_id_list(options[:clear_follow_up])
+        add_ids = parse_id_list(options[:add_follow_up])
+        body["clear_follow_up_for"] = clear_ids unless clear_ids.empty?
+        body["add_follow_up_for"] = add_ids unless add_ids.empty?
+
+        note = client.post("/api/v1/prospect_families/#{family_id}/notes", body)
+        kind = options[:activity_type] ? "Logged #{options[:activity_type]} contact" : "Added note"
+        render(note,
+               summary: "#{kind} ##{note["id"]} on family #{family_id}.",
+               breadcrumbs: [
+                 { "cmd" => "wiq prospect_families notes #{family_id}", "description" => "Full contact log" },
+                 { "cmd" => "wiq prospect_families show #{family_id}", "description" => "Back to the family" }
+               ])
+      end
+
+      no_commands do
+        # Maps CLI flags → the `prospect_family` permit list on
+        # Api::V1::ProspectFamiliesController.
+        FAMILY_FIELD_MAP = {
+          first_name: "contact_first_name",
+          last_name: "contact_last_name",
+          email: "contact_email",
+          phone: "contact_phone",
+          hear_about_us: "hear_about_us",
+          source: "source",
+          assigned_coach: "assigned_coach_id",
+          guardian_id: "guardian_id",
+          guardian_type: "guardian_type"
+        }.freeze
+
+        def build_family_attrs
+          attrs = {}
+          FAMILY_FIELD_MAP.each do |flag, param|
+            value = options[flag]
+            attrs[param] = value unless value.nil?
+          end
+          attrs
+        end
+
+        def parse_id_list(raw)
+          return [] if raw.nil? || raw.to_s.strip.empty?
+
+          raw.to_s.split(",").map(&:strip).reject(&:empty?).map(&:to_i).reject(&:zero?)
+        end
       end
     end
   end

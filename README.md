@@ -7,9 +7,10 @@
 > recommended for production-critical automation. Pin your gem version
 > if you build anything load-bearing on top of it.
 
-Read-only command-line interface for [WrestlingIQ](https://www.wrestlingiq.com).
+Command-line interface for [WrestlingIQ](https://www.wrestlingiq.com).
 Designed to be driven by both humans and AI agents (Claude Code, Cursor,
-etc.) via per-user personal access tokens (PATs).
+etc.) via per-user personal access tokens (PATs). Every token can read;
+tokens minted with a write scope can also work the leads pipeline.
 
 ## Getting started
 
@@ -38,6 +39,13 @@ The token inherits your WrestlingIQ permissions. If you're an admin
 coach, your CLI will be able to run admin reports; if you're not, it
 won't. Either way, the token can be revoked anytime from the same
 page.
+
+Tokens are read-only unless you tick a write permission when minting
+one. Today that's **Create and edit leads** (`prospects:write`) and
+**Create reports** (`reports:write`). A team admin has to enable each
+capability for the club first under **Settings → API Access**; the
+token picker only offers what the team allows. Scopes are fixed for the
+life of a token — to change them, revoke it and mint a new one.
 
 ### 3. Log in
 
@@ -81,6 +89,7 @@ Now you can ask Claude things like:
 ```bash
 wiq rosters list                                            # Browse rosters
 wiq prospects summary                                       # Pipeline dashboard
+wiq prospects advance 123 trial_scheduled                   # Move a lead forward (needs prospects:write)
 wiq events list --start 2026-05-01 --end 2026-05-31         # Calendar
 wiq workflows list                                          # Curated multi-step recipes
 wiq reports types                                           # 36 report types w/ recommendations
@@ -135,9 +144,11 @@ output (the CLI never logs your token — paste the full JSON safely).
 
 ## Status
 
-v0.1.0 — 29 commands across 16 groups, 117 RSpec smoke examples.
-Reads-only except for report submission (the API's canonical async
-pattern). Write commands deferred — see `docs/deferred.md`.
+v0.6.0 — reads across every group, plus report submission and a
+scoped write surface for the prospects pipeline (`prospect_families
+create/update/note`, `prospects create/update/advance`) gated by the
+`prospects:write` token scope. Other write commands deferred — see
+`docs/deferred.md`.
 
 ## License
 
