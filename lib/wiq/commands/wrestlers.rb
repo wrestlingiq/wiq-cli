@@ -116,7 +116,63 @@ module Wiq
                ])
       end
 
+      desc "notes ID", "List coach notes on a wrestler, newest first"
+      long_desc <<~DESC
+        GET /api/v1/wrestlers/:id/notes. Coach notes are visible to every
+        coach on the team and never to wrestlers or parents. Each row:
+        id, created_at, author (display_name + author_type), and the body
+        as rich `content` (HTML) and `plain_content`.
+      DESC
+      method_option :all, type: :boolean, default: false
+      def notes(id)
+        records, total = fetch_index("/api/v1/wrestlers/#{id}/notes", { "per_page" => 50 }, key: "notes")
+        render_index(
+          records, total: total,
+          summary: "Listed #{records.size} notes for wrestler #{id}.",
+          breadcrumbs: [
+            { "cmd" => "wiq wrestlers note #{id} --content \"...\"", "description" => "Add a note [notes:write]" },
+            { "cmd" => "wiq wrestlers show #{id}", "description" => "Back to the wrestler" }
+          ]
+        )
+      end
+
+      desc "note ID", "Add a coach note to a wrestler [notes:write]"
+      long_desc <<~DESC
+        POSTs to /api/v1/wrestlers/:id/notes. Requires the notes:write
+        scope (team-enabled + on the token). The note is authored by the
+        coach who minted the token and is visible only to the team's
+        coaches. Content is sent as plain text; @mentions of other coaches
+        notify them by email.
+      DESC
+      method_option :content, type: :string, required: true, desc: "Note body (plain text)"
+      def note(id)
+        note = client.post("/api/v1/wrestlers/#{id}/notes", note_body)
+        render(note,
+               summary: "Added note ##{note["id"]} on wrestler #{id}.",
+               breadcrumbs: [
+                 { "cmd" => "wiq wrestlers notes #{id}", "description" => "All notes on this wrestler" }
+               ])
+      end
+
+      desc "update_note NOTE_ID", "Replace the body of a wrestler note you wrote [notes:write]"
+      long_desc <<~DESC
+        PUTs to /api/v1/notes/:note_id. Requires the notes:write scope.
+        Only the coach who wrote the note can edit it, and only notes on a
+        wrestler — match notes return a 422 for tokens. Notes can't be
+        deleted through the API. Find note ids with `wiq wrestlers notes <id>`.
+      DESC
+      method_option :content, type: :string, required: true, desc: "New note body (plain text)"
+      def update_note(note_id)
+        client.put("/api/v1/notes/#{note_id}", note_body)
+        render({ "id" => note_id.to_i, "updated" => true },
+               summary: "Updated note ##{note_id}.")
+      end
+
       no_commands do
+        def note_body
+          { "note" => { "content" => options[:content], "plain_content" => options[:content] } }
+        end
+
         # Extracted so the spec can verify the option → query-param mapping
         # without round-tripping a real Faraday connection.
         def build_list_params
