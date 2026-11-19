@@ -10,6 +10,32 @@ RSpec.describe Wiq::Commands::Wrestlers do
     described_class.new([], full_opts, {}).send(:build_list_params)
   end
 
+  describe "notes writes" do
+    def command_with_client(opts)
+      cmd = described_class.new([], { agent: true }.merge(opts), {})
+      client = double("client")
+      allow(cmd).to receive(:client).and_return(client)
+      [cmd, client]
+    end
+
+    it "posts a note to the wrestler's notes, sending content as plain text too" do
+      cmd, client = command_with_client(content: "Hand fighting better")
+      expect(client).to receive(:post)
+        .with("/api/v1/wrestlers/12/notes",
+              { "note" => { "content" => "Hand fighting better", "plain_content" => "Hand fighting better" } })
+        .and_return({ "id" => 99 })
+      expect { cmd.note("12") }.to output(/"id":99/).to_stdout
+    end
+
+    it "updates a note through /notes/:id, not the wrestler-nested route" do
+      cmd, client = command_with_client(content: "Fixed")
+      expect(client).to receive(:put)
+        .with("/api/v1/notes/99", { "note" => { "content" => "Fixed", "plain_content" => "Fixed" } })
+        .and_return(nil)
+      expect { cmd.update_note("99") }.to output(/"updated":true/).to_stdout
+    end
+  end
+
   describe "default behavior" do
     it "filters to teammates by default (matches WIQ web UI default)" do
       params = build_params_for

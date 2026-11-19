@@ -25,7 +25,7 @@ module Wiq
         That metadata is shown after login and stored alongside the token.
 
         Scopes: every PAT can read. Writes need a capability (currently
-        prospects:write, reports:write) that the team admin has enabled
+        prospects:write, notes:write, reports:write) that the team admin has enabled
         under Settings → API Access AND that the token was minted with.
         Scopes are immutable — to change them, revoke and mint a new
         token, then re-run this command with --force.

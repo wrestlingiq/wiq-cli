@@ -41,8 +41,9 @@ won't. Either way, the token can be revoked anytime from the same
 page.
 
 Tokens are read-only unless you tick a write permission when minting
-one. Today that's **Create and edit leads** (`prospects:write`) and
-**Create reports** (`reports:write`). A team admin has to enable each
+one. Today that's **Create and edit leads** (`prospects:write`),
+**Add and edit wrestler notes** (`notes:write`), and **Create reports**
+(`reports:write`). A team admin has to enable each
 capability for the club first under **Settings → API Access**; the
 token picker only offers what the team allows. Scopes are fixed for the
 life of a token — to change them, revoke it and mint a new one.
@@ -90,6 +91,7 @@ Now you can ask Claude things like:
 wiq rosters list                                            # Browse rosters
 wiq prospects summary                                       # Pipeline dashboard
 wiq prospects advance 123 trial_scheduled                   # Move a lead forward (needs prospects:write)
+wiq wrestlers note 456 --content "Finishing shots better"   # Add a coach note (needs notes:write)
 wiq events list --start 2026-05-01 --end 2026-05-31         # Calendar
 wiq workflows list                                          # Curated multi-step recipes
 wiq reports types                                           # 36 report types w/ recommendations
@@ -144,10 +146,11 @@ output (the CLI never logs your token — paste the full JSON safely).
 
 ## Status
 
-v0.6.1 — reads across every group, plus report submission and a
-scoped write surface for the prospects pipeline (`prospect_families
-create/update/note`, `prospects create/update/advance`) gated by the
-`prospects:write` token scope. Other write commands deferred — see
+v0.7.0 — reads across every group, plus report submission and scoped
+write surfaces for the prospects pipeline (`prospect_families
+create/update/note`, `prospects create/update/advance`, gated by the
+`prospects:write` token scope) and coach notes on wrestlers (`wrestlers
+note/update_note`, gated by `notes:write`). Other write commands deferred — see
 `docs/deferred.md`.
 
 ## License

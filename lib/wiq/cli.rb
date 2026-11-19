@@ -80,7 +80,7 @@ module Wiq
     desc "setup SUBCOMMAND", "Install integration files (Claude Code skill, future: Cursor, etc.)"
     subcommand "setup", Wiq::Commands::Setup
 
-    desc "wrestlers SUBCOMMAND", "Search wrestlers — narrow ID-discovery surface (list, show)"
+    desc "wrestlers SUBCOMMAND", "Search wrestlers — narrow ID-discovery surface (list, show, notes; note, update_note need notes:write)"
     subcommand "wrestlers", Wiq::Commands::Wrestlers
 
     desc "parents SUBCOMMAND", "Search parents — narrow ID-discovery surface (list, show)"

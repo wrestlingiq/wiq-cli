@@ -300,6 +300,7 @@ Registry today:
 | Capability | Actions |
 | --- | --- |
 | `prospects:write` | `prospect_families#create/#update`, `prospects#create/#update`, `prospect_family_notes#create` |
+| `notes:write` | `wrestler_notes#create`, `notes#update` (wrestler notes only — a token updating a match note gets a 422) |
 | `reports:write` | `reports#create` |
 
 Unregistered writes (every `destroy`, everything else) fail closed with

@@ -1,6 +1,6 @@
 ---
 name: wiq
-description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, payouts/bank deposits, reports, USAW/AAU memberships, fundraising, online store orders, or per-location/site breakdowns for multi-gym clubs. The `wiq` CLI reads /api/v1 via personal access tokens and, when the token carries the prospects:write scope, can also create/edit leads, log contact notes, and advance prospects through the pipeline. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", "how is the Eastside gym doing?", or anything that maps to a wrestling club's admin workflows.
+description: Use this skill when the user asks about their WrestlingIQ data — rosters, attendance, check-ins, paid sessions and registrations, the prospects/leads pipeline, financial metrics, payouts/bank deposits, reports, USAW/AAU memberships, fundraising, online store orders, or per-location/site breakdowns for multi-gym clubs. The `wiq` CLI reads /api/v1 via personal access tokens and, when the token carries the prospects:write scope, can also create/edit leads, log contact notes, and advance prospects through the pipeline; with notes:write it can add and edit coach notes on wrestlers. Recognize phrasings like "how is our pipeline?", "who came to practice this week?", "show me the roster", "what's our MRR?", "which kids need USAW renewal?", "how is the Eastside gym doing?", or anything that maps to a wrestling club's admin workflows.
 ---
 
 # WrestlingIQ CLI Skill
@@ -56,7 +56,7 @@ per situation.
 - **Writes need a capability on BOTH the team and the token.** Reads are
   implicit for every token. A write (`POST`/`PATCH`) succeeds only when it
   maps to a capability in the server's registry (`prospects:write`,
-  `reports:write`) that a team admin has enabled under Settings → API
+  `notes:write`, `reports:write`) that a team admin has enabled under Settings → API
   Access AND that the token was minted with. Token scopes are immutable:
   to add one, revoke + mint a new token, then `wiq auth login --force`.
   `wiq auth status` / `wiq doctor` show the live scopes — check them
@@ -450,8 +450,8 @@ Three gotchas an agent must know:
 
 ## Writes — the prospects pipeline (`prospects:write`)
 
-The only writable surface besides report submission is the leads
-pipeline. Six commands, all requiring the `prospects:write` scope:
+Besides report submission and wrestler notes (next section), the
+writable surface is the leads pipeline. Six commands, all requiring the `prospects:write` scope:
 
 ```bash
 wiq prospect_families create --first-name Dana --last-name Lee --email dana@x.com --phone 5551234
@@ -494,12 +494,34 @@ front rather than discover via errors):
    prospect_families linked_answers <family_id>` returns them; copy a
    phone back with `wiq prospect_families update --phone`.
 
+## Writes — coach notes on wrestlers (`notes:write`)
+
+```bash
+wiq wrestlers notes <wrestler_id>                             # read: list notes, newest first
+wiq wrestlers note <wrestler_id> --content "Hand fighting much better"
+wiq wrestlers update_note <note_id> --content "Corrected text"
+```
+
+1. **Check scopes first.** `wiq auth status` → `live_scopes` must include
+   `notes:write`; if not, the team admin enables it under Settings → API
+   Access or the user mints a new token with it.
+2. **Coach-only audience.** Notes are visible to every coach on the team
+   and never to the wrestler or parents. @mentioning another coach emails
+   them, so don't @mention unless the user asked to notify someone.
+3. **Edit only your own wrestler notes.** `update_note` works only on
+   notes the token's coach wrote, and only on wrestler notes (match notes
+   return 422). Nothing can be deleted through the API.
+4. **Find the wrestler first.** `wiq wrestlers list --query <name>` gives
+   the id; a wrestler the coach can't see (another team, or outside a
+   roster-restricted coach's rosters) returns 403.
+
 ## What's NOT available
 
 You cannot via this CLI:
 
 - Create/edit check-ins, events, paid sessions, rosters, locations, or
-  any resource other than prospects/families/notes and reports
+  any resource other than prospects/families/notes, wrestler notes,
+  and reports
 - Delete anything (destroy actions are outside every capability)
 - Mint, list, or revoke PATs (use the web UI at
   `<host>/settings/personal_access_tokens`)
